@@ -46,32 +46,32 @@ if (!argv.key) {
 }
 
 function encodeRFC3986URI(str) {
-    return encodeURIComponent(str)
-        .replace(
-            /[!'()*]/g,
-            (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
-        );
+  return encodeURIComponent(str)
+    .replace(
+      /[!'()*]/g,
+      (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+    );
 }
 
 function serializeObjectToQueryString(params, prefix = '', join = '&') {
-    const query = Object.keys(params)
-        .map(key => {
-            const value = params[key];
+  const query = Object.keys(params)
+    .map(key => {
+      const value = params[key];
 
-            if ((value !== null) && (typeof value === 'object')) {
-                return serializeObjectToQueryString(value, (prefix ? `${prefix}%5B${encodeRFC3986URI(key)}%5D` : (encodeRFC3986URI(key))), join);
-            } else if (value !== null) {
-                return prefix ? `${prefix}%5B${encodeRFC3986URI(key)}%5D=${encodeRFC3986URI(value)}` : `${encodeRFC3986URI(key)}=${encodeRFC3986URI(value)}`;
-            } else {
-                return null;
-            }
-        })
-        .filter(item => null !== item);
+      if ((value !== null) && (typeof value === 'object')) {
+        return serializeObjectToQueryString(value, (prefix ? `${prefix}%5B${encodeRFC3986URI(key)}%5D` : (encodeRFC3986URI(key))), join);
+      } else if (value !== null) {
+        return prefix ? `${prefix}%5B${encodeRFC3986URI(key)}%5D=${encodeRFC3986URI(value)}` : `${encodeRFC3986URI(key)}=${encodeRFC3986URI(value)}`;
+      } else {
+        return null;
+      }
+    })
+    .filter(item => null !== item);
 
-    return [].concat.apply([], query).join(join);
+  return [].concat.apply([], query).join(join);
 }
 
-function getSignature (requestMethod, params, bodyMode) {
+function getSignature(requestMethod, params, bodyMode) {
   const publicKey = config.publicKey;
   const privateKey = config.privateKey;
   //const dtString = Math.floor(Date.now() / 1000).toString().substring(0, 4);
@@ -80,18 +80,18 @@ function getSignature (requestMethod, params, bodyMode) {
 
   let paramsString = '';
   if ('GET' === requestMethod || 'DELETE' === requestMethod) {
-      paramsString = serializeObjectToQueryString(params, '', '|');
+    paramsString = serializeObjectToQueryString(params, '', '|');
   } else {
-      let requestParams;
-      requestParams = {...params || {}};
-      if (bodyMode === 'formdata') {
-          delete requestParams['media'];
-      } else {
-          //workaround for JSON keys rearrangement 
-          // pm.request.body.raw = JSON.stringify(requestParams, null, 2);
-      }
+    let requestParams;
+    requestParams = { ...params || {} };
+    if (bodyMode === 'formdata') {
+      delete requestParams['media'];
+    } else {
+      //workaround for JSON keys rearrangement 
+      // pm.request.body.raw = JSON.stringify(requestParams, null, 2);
+    }
 
-      paramsString = serializeObjectToQueryString(requestParams, '', '|');
+    paramsString = serializeObjectToQueryString(requestParams, '', '|');
   }
 
   const signaturePrivateKey = CryptoJS.SHA512(privateKey).toString(CryptoJS.digest);
@@ -114,17 +114,21 @@ const endpoints = {
   get: async (url, params, resultRowsKey) => {
     // API get
     const options = {
-        headers: {
-          ...config.headers,
-          'X-Request-Signature': getSignature('GET', params, 'query')
-        },
-        timeout: config.timeout
-      }
+      headers: {
+        ...config.headers,
+        'X-Request-Signature': getSignature('GET', params, 'query')
+      },
+      timeout: config.timeout
+    }
+
+    const curlString = `curl -X GET "${config.root}${url}?${serializeObjectToQueryString(params)}"`
+      + ` -H "X-Request-Public-Key: ${config.publicKey}"`
+    console.log(curlString);
     const response = await axios.get(`${config.root}${url}`, params, options)
     console.log(response.data)
     return response.data.results[resultRowsKey] || response.data.results
   },
-  
+
   post: async (url, params, resultRowsKey, customName) => {
     // API post
     /* JSON like
@@ -246,7 +250,7 @@ const endpoints = {
       if (fs.existsSync(xmlName)) fs.unlinkSync(xmlName)
       const csvName = `${fname}.csv`
       if (fs.existsSync(csvName)) fs.unlinkSync(csvName)
-      
+
       console.log(`Deleted: ${fname}`)
     } catch (error) {
       console.log(error)
