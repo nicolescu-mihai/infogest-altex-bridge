@@ -27,7 +27,7 @@ const config = {
   save_json: false,
   save_xml: false,
   save_csv: true,
-  save_curl: false,
+  save_curl: true,
   date_start: argv.startdate || oneWeekAgo,
   date_end: argv.enddate || today,
   model_fields: {
@@ -111,7 +111,7 @@ const strCleanup = str => str
   .replace(/ ,/g, ',');
 
 const endpoints = {
-  get: async (url, params, resultRowsKey) => {
+  get: async (url, params, resultRowsKey, customName) => {
     // API get
     const options = {
       headers: {
@@ -121,8 +121,28 @@ const endpoints = {
       timeout: config.timeout
     }
 
-    const curlString = `curl -X GET "${config.root}${url}?${serializeObjectToQueryString(params)}"`
-      + ` -H "X-Request-Public-Key: ${config.publicKey}"`
+    // build final url
+    let fullUrl = '';
+    const strParams = serializeObjectToQueryString(params);
+    if (strParams) {
+      fullUrl = `${config.root}${url}?${serializeObjectToQueryString(params)}`;
+    } else {
+      fullUrl = `${config.root}${url}`;
+    }
+    
+    if (config.save_curl) {
+      // save curl command
+      let curlString = `curl -X GET "${fullUrl}"` // params are in the path
+      for (const key in options.headers) {
+        curlString += ` -H "${key}: ${options.headers[key]}"`
+      }
+      const name = customName + '.cmd'
+      fs.writeFileSync(name, curlString)
+    }
+    
+    let curlString = `curl -X GET \n`
+    
+    curlString += ` "${config.root}${url}?${serializeObjectToQueryString(params)}"`
     console.log(curlString);
     const response = await axios.get(`${config.root}${url}`, params, options)
     console.log(response.data)
@@ -347,7 +367,7 @@ const endpoints = {
     // delete previous data
     endpoints.delete('categories')
 
-    const aCategories = await endpoints.get('/v2.0/catalog/category', {}, 'categories')
+    const aCategories = await endpoints.get('/v2.0/catalog/category/', {}, 'categories', 'categories')
     // process data
     const aRows = []
     for (const i of aCategories) {
@@ -365,7 +385,7 @@ const endpoints = {
       }
       aRows.push(row)
     }
-    endpoints.save(aRows, 'categories')
+    endpoints.save(aRows, 'categories', 'categories')
   }
 }
 
