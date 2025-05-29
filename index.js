@@ -430,7 +430,8 @@ const endpoints = {
     for (const set of aRows) {
       const setId = set.id
       const attrs = await endpoints.get(`/v2.0/catalog/sets/${setId}/attributes`, {}, baseName)
-      aAttributes.push(attrs.map(attr => { return { set_id: setId, ...attr } }))
+      // extract only relevant data
+      aAttributes.push(...attrs.map(attr => { return { set_id: setId, code: attr.code, name: attr.name } }))
     }
     endpoints.save(aAttributes, baseName)
   },
