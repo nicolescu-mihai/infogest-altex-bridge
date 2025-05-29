@@ -1,0 +1,64 @@
+{
+  "0": {
+    "attribute_set_id": 456,
+    "category_ids": [
+      2604
+    ],
+    "ean": "58355572",
+    "name": "Vehicul pentru copii 2.0",
+    "description": "Babytaxiul pentru copii este imitația unei mașini de lux, care  strălucește într-un design unic de care copilașul dumneavoastră se va îndrăgosti la prima  vedere. Babytaxiul este potrivit pentru vârstele 1-5 ani, dar va cuceri mai ales atenția  băieților. La prima vedere babytaxiul îl va fascina pe copilașul dumneavoastră la prima vedere  cu efectul său sonor, care va transforma fiecare călătorie într-una mai distractivă și mai interesantă. Formele rotunde ale babytaxiului mașinuță le oferă copiilor siguranță, scaunul  său confortabil și culorile frumoase măresc mersul distractiv cu viteză.",
+    "attributes": {
+      "brand": 72463,
+      "culoare_global": [
+        59783
+      ],
+      "baby_gen_pentru": [
+        "54765"
+      ],
+      "baby_tip_produs": 40415,
+      "jucarii_tip_functionare": 40842,
+      "material_multiselect_global": [
+        "36216"
+      ],
+      "varsta_text_global": 12,
+      "garantie_comerciala_global": 33738,
+      "garantie_conformitate_global": 33757,
+      "autonomie_h_global": "2h",
+      "capacitate_acumulator_global": 5,
+      "dimensiuni_l_x_a_x_i_cm_global": "20x60x20",
+      "greutate_kg_global": 30,
+      "greutate_suportata_global": 20,
+      "tensiune_v_text_global": 220,
+      "viteza_maxima": 20,
+      "material_roti": [
+        "38306"
+      ],
+      "baby_varsta_interval": [
+        "40041"
+      ]
+    },
+    "images": {
+      "main": "https://maraandtom.ro/wp-content/uploads/2023/07/17307_2.jpg",
+      "0": "https://maraandtom.ro/wp-content/uploads/2023/07/17307.jpg",
+      "1": "https://maraandtom.ro/wp-content/uploads/2023/07/17307_3.jpg",
+      "2": "https://maraandtom.ro/wp-content/uploads/2023/07/17307_6.jpg",
+      "energy_class_image": "https://maraandtom.ro/wp-content/uploads/2023/07/17307_4.jpg"
+    },
+    "offer": {
+      "seller_product_code": "the_seller_product_code_unic",
+      "seller_product_url": "https://seller-url.com/path-to-product-page",
+      "status": 1,
+      "price": 200,
+      "selling_price": 1500,
+      "recommended_price": 1400,
+      "min_delivery_interval": 1,
+      "max_delivery_interval": 2,
+      "min_selling_price": 1500,
+      "vat": 19,
+      "selling_price_date_start": "2024-01-25",
+      "selling_price_date_end": "2024-01-31",
+      "max_products_on_order": 12,
+      "stock": 99
+    }
+  }
+}

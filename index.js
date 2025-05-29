@@ -4,7 +4,6 @@ const axios = require('axios')
 const xml2js = require('xml2js')
 const fs = require('fs')
 const { Parser } = require('json2csv')
-const sleep = require('sleep')
 const CryptoJS = require('crypto-js')
 
 const today = new Date().toISOString().split('T')[0];
@@ -87,6 +86,7 @@ function getSignature(requestMethod, params, bodyMode) {
     if (bodyMode === 'formdata') {
       delete requestParams['media'];
     } else {
+      requestParams = JSON.parse(JSON.stringify(params) || {});
       //workaround for JSON keys rearrangement 
       // pm.request.body.raw = JSON.stringify(requestParams, null, 2);
     }
@@ -110,6 +110,13 @@ function getFullUrl(url, params) {
     fullUrl = `${config.root}${url}`
   }
   return fullUrl
+}
+
+async function sleep (seconds) {
+  return new Promise(resolve => {
+    console.log(`Sleeping for ${seconds} seconds...`)
+    setTimeout(() => resolve(), seconds * 1000)
+  })
 }
 
 // replace accented characters with non-accented ones
@@ -172,7 +179,7 @@ const endpoints = {
               throw error; // rethrow the error after max retries
             }
             // wait before retrying
-            await new Promise(resolve => setTimeout(resolve, 2000)); // wait 2 seconds before retrying
+            await sleep(config.sleep);
           }
         }
         // check if we have data
@@ -196,79 +203,25 @@ const endpoints = {
     }
     return items
   },
-
-  post: async (url, params, resultRowsKey, customName) => {
+  post: async (url, data, customName) => {
     // API post
     // console.log(`POST ${url}`)
     try {
-      const aRows = []
-      const rParams = { itemsPerPage: config.itemsPerPage, currentPage: 0, ...params }
       const options = {
-        headers: config.auth_hrd,
+        headers: {
+          ...config.headers,
+          'X-Request-Signature': getSignature('POST', data, 'query') // no params for POST, so we use null
+        },
         timeout: config.timeout
       }
-      let response = null
-      let totalResults = null
+      const response = await axios.post(`${config.root}${url}`, data, options)
 
-      while (aRows.length < totalResults || totalResults === null) {
-        // next page is needed
-        rParams.currentPage++
-        // console.log(`GET page: ${rParams.currentPage}`)
-
-        console.log(`Sleeping for ${config.sleep} seconds to avoid being blocked`)
-        sleep.sleep(config.sleep)
-
-        // call emag API
-        response = await axios.post(`${config.root}${url}`, rParams, options)
-
-        if (Array.isArray(response.data.results) && response.data.results.length > 0) {
-          // there is no info on the total results, but we have some rows
-
-          // extract rows
-          aRows.push(...response.data.results)
-
-          // try to get more
-          totalResults = (response.data.results.length < rParams.itemsPerPage ? aRows.length : aRows.length + 1)
-        } else {
-          // we should have the total results info
-
-          // extract total results
-          if (response.data.results.total_results) {
-            // we know how many results we have
-            totalResults = response.data.results.total_results
-          }
-
-          // extract rows
-          aRows.push(...response.data.results[resultRowsKey])
-        }
-
-        // log progress
-        const r = response.request
-        console.log(`${r.method} ${r.protocol}//${r.host}${r.path} ${aRows.length}/${totalResults} rows`)
-
-        if (config.save_curl && rParams.currentPage === 1) {
-          // save curl command
-          const curl = `curl -X POST "${r.protocol}//${r.host}${r.path}"` // params are in the path
-          const headers = `-H "Authorization: ${config.auth_hrd['Authorization']}"`
-          const data = `-d '${JSON.stringify(rParams)}'`
-          const name = (customName || url.match(/\/(?:.(?!\/))+$/)[0].replace('/', '')) + '.cmd'
-          const cmd = `${curl}^\n ${headers}^\n ${data}`
-          fs.writeFileSync(name, cmd)
-        }
-      }
-
-      return aRows
+      return response
     } catch (error) {
       if (error.response) {
-        console.log('status', error.response.status)
-        console.log('data', error.response.data)
-        if ([401, 403].indexOf(error.response.status) > -1) {
-          console.log('error', 'Wrong credentials, please check the user and password')
-          throw new Error('Wrong credentials, please check the user and password')
-        }
-      } else {
-        console.log(error)
+        console.log('Error data:', JSON.stringify(error.response.data))
       }
+      console.log(error)
     }
   },
   write: (data, fname) => {
@@ -445,49 +398,21 @@ const endpoints = {
     endpoints.save(aRows, baseName)
   },
   testAddProduct: async () => {
-    const product = {
-      category_id: 4,
-      ean: '1234567890123',
-      name: 'Test Product asjdghasdghlkjagsh lkzsjfhlksajg',
-      description: 'This is a test product ,kejhgfeywgfr wuet rowet rouetwy outruewo fryt',
-      attributes: {
-        "brand": 3755,
-        "culoare_global": [
-          54765
-        ],
-        "baby_tip_produs": 40415,
-        "jucarii_tip_functionare": 40842,
-        "material_multiselect_global": [
-          36216
-        ],
-        "varsta_text_global": 12,
-        "garantie_comerciala_global": 33738,
-        "garantie_conformitate_global": 33757,
-        "autonomie_h_global": "2h",
-        "capacitate_acumulator_global": 5,
-        "dimensiuni_l_x_a_x_i_cm_global": "20x60x20",
-        "greutate_kg_global": 30,
-        "greutate_suportata_global": 20,
-        "tensiune_v_text_global": 220,
-        "viteza_maxima": 20,
-        "material_roti": [
-          38306
-        ],
-        "baby_varsta_interval": [
-          40041
-        ]
-      },
-      images: {
-        "0": "https://cdna.altex.ro/resize/media/catalog/product//l/e/71ce502ca67d3b8e424e73cceebfdd7e/lenovo-ideapad-110_1.jpg",
-        "main": "https://cdna.altex.ro/resize/media/catalog/product//y/5/71ce502ca67d3b8e424e73cceebfdd7e/y520_1.jpg",
-        "energy_class_image": "https://cdna.altex.ro/resize/media/catalog/product//y/5/71ce502ca67d3b8e424e73cceebfdd7e/y520_1.jpg"
-      }
-    }
+    const product = JSON.parse(fs.readFileSync('./data/test-product1.json', 'utf8'))
+    endpoints.post('/v2.0/catalog/product/', product, 'product')
   }
 }
 
+async function main () {
+  try {
+    // await endpoints.exportCustomerInvoices()
+    // await endpoints.exportCategories()
+    // await endpoints.exportAttributes()
+    await endpoints.testAddProduct()
+    // await endpoints.exportProducts()
+  } catch (error) {
+    console.error('Error in main function:', error.message)
+  }
+}
 
-endpoints.exportCategories()
-  .then(() => endpoints.exportAttributes())
-  .then(() => endpoints.exportProducts())
-  .then(() => console.log('Import finished'))
+main().then(() => console.log('Import finished'))
