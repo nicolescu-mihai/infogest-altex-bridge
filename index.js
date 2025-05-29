@@ -206,19 +206,22 @@ const endpoints = {
   post: async (url, data, customName) => {
     // API post
     // console.log(`POST ${url}`)
+    const options = {
+      headers: {
+        ...config.headers,
+        'X-Request-Signature': getSignature('POST', data, 'query') // no params for POST, so we use null
+      },
+      timeout: config.timeout
+    }
+    const fullUrl = `${config.root}${url}`
     try {
-      const options = {
-        headers: {
-          ...config.headers,
-          'X-Request-Signature': getSignature('POST', data, 'query') // no params for POST, so we use null
-        },
-        timeout: config.timeout
-      }
-      const response = await axios.post(`${config.root}${url}`, data, options)
+      const response = await axios.post(fullUrl, data, options)
 
       return response
     } catch (error) {
       if (error.response) {
+        console.log(`Error in POST request to ${fullUrl}`)
+        console.log(`Headers: ${JSON.stringify(options)}`)
         console.log('Error data:', JSON.stringify(error.response.data))
       }
       console.log(error)
