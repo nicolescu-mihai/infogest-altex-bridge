@@ -1,10 +1,10 @@
 {
-  "name": "infogest-emag-bridge",
+  "name": "infogest-altex-bridge",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "build": "pkg index.js -o emag-bridge.exe"
+    "build": "pkg index.js -o altex-bridge.exe"
   },
   "dependencies": {
     "axios": "^0.21.4",

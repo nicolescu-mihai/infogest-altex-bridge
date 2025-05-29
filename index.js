@@ -21,10 +21,10 @@ const config = {
     'Accept': 'application/json',
     'X-Request-Public-Key': argv.pubkey || 'cabdd74122382757e92466e746c4c8d5',
   },
-  itemsPerPage: 500,
+  itemsPerPage: 100,
   timeout: 3 * 60 * 1000, // 5 minutes
   sleep: 4, // seconds
-  save_json: false,
+  save_json: true,
   save_xml: false,
   save_csv: true,
   save_curl: true,
@@ -96,8 +96,20 @@ function getSignature(requestMethod, params, bodyMode) {
 
   const signaturePrivateKey = CryptoJS.SHA512(privateKey).toString(CryptoJS.digest);
   const signature = dtString + '' + CryptoJS.SHA512(`${publicKey}||${signaturePrivateKey}||${paramsString}||${dtString}`).toString(CryptoJS.digest).toLowerCase();
-  console.log({ publicKey, signaturePrivateKey, paramsString, dtString, signature, requestMethod });
+  // console.log({ publicKey, signaturePrivateKey, paramsString, dtString, signature, requestMethod });
   return signature;
+}
+
+function getFullUrl(url, params) {
+  // build final url
+  let fullUrl = ''
+  const strParams = serializeObjectToQueryString(params)
+  if (strParams) {
+    fullUrl = `${config.root}${url}?${serializeObjectToQueryString(params)}`
+  } else {
+    fullUrl = `${config.root}${url}`
+  }
+  return fullUrl
 }
 
 // replace accented characters with non-accented ones
@@ -111,8 +123,14 @@ const strCleanup = str => str
   .replace(/ ,/g, ',');
 
 const endpoints = {
-  get: async (url, params, resultRowsKey, customName) => {
+  get: async (url, params, customName) => {
     // API get
+    params = {
+      items_per_page: config.itemsPerPage,
+      page_nr: 1,
+      ...params
+    }
+    
     const options = {
       headers: {
         ...config.headers,
@@ -122,14 +140,8 @@ const endpoints = {
     }
 
     // build final url
-    let fullUrl = '';
-    const strParams = serializeObjectToQueryString(params);
-    if (strParams) {
-      fullUrl = `${config.root}${url}?${serializeObjectToQueryString(params)}`;
-    } else {
-      fullUrl = `${config.root}${url}`;
-    }
-    
+    let fullUrl = getFullUrl(url, params)
+
     if (config.save_curl) {
       // save curl command
       let curlString = `curl -X GET "${fullUrl}"` // params are in the path
@@ -139,14 +151,24 @@ const endpoints = {
       const name = customName + '.cmd'
       fs.writeFileSync(name, curlString)
     }
-    
-    let curlString = `curl -X GET \n`
-    
-    curlString += ` "${config.root}${url}?${serializeObjectToQueryString(params)}"`
-    console.log(curlString);
-    const response = await axios.get(`${config.root}${url}`, params, options)
-    console.log(response.data)
-    return response.data.results[resultRowsKey] || response.data.results
+
+    const items = []
+    let totalItems = null
+    while (totalItems === null || totalItems > items.length) {
+      // get the response
+      console.log(`GET ${fullUrl}`)
+      const response = await axios.get(`${fullUrl}`, options)
+      // push data
+      items.push(...response.data.data.items)
+      totalItems = parseInt(response.data.data.total_items) || 0
+      // prepare for next page
+      params.page_nr += 1
+      fullUrl = getFullUrl(url, params)
+      options.headers['X-Request-Signature'] = getSignature('GET', params, 'query')
+    }
+
+    console.log(`totalItems: ${totalItems}, items.length: ${items.length}`)
+    return items
   },
 
   post: async (url, params, resultRowsKey, customName) => {
@@ -365,30 +387,25 @@ const endpoints = {
   },
   exportCategories: async () => {
     // delete previous data
-    endpoints.delete('categories')
+    const baseName = 'categories'
+    endpoints.delete(baseName)
 
-    const aCategories = await endpoints.get('/v2.0/catalog/category/', {}, 'categories', 'categories')
-    // process data
-    const aRows = []
-    for (const i of aCategories) {
-      if (config.save_json) {
-        // save raw data
-        endpoints.write(JSON.stringify(i), `category_${i.id}.json`)
-      }
-      const row = {
-        id: i.id,
-        name: strCleanup(i.name),
-        parent_id: i.parent_id,
-        level: i.level,
-        is_active: i.is_active,
-        position: i.position,
-      }
-      aRows.push(row)
-    }
-    endpoints.save(aRows, 'categories', 'categories')
+    const aRows = await endpoints.get('/v2.0/catalog/category/', {}, baseName)
+
+    endpoints.save(aRows, baseName)
+  },
+  exportProducts: async () => {
+    // delete previous data
+    const baseName = 'products'
+    endpoints.delete(baseName)
+
+    const aRows = await endpoints.get('/v2.0/catalog/product/', {}, baseName)
+
+    endpoints.save(aRows, baseName)
   }
 }
 
 
 endpoints.exportCategories()
+  .then(() => endpoints.exportProducts())
   .then(() => console.log('Import finished'))
