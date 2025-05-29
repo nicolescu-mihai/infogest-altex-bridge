@@ -130,7 +130,7 @@ const endpoints = {
       page_nr: 1,
       ...params
     }
-    
+
     const options = {
       headers: {
         ...config.headers,
@@ -394,6 +394,25 @@ const endpoints = {
 
     endpoints.save(aRows, baseName)
   },
+  exportAttributes: async () => {
+    // delete previous data
+    let baseName = 'sets'
+    endpoints.delete(baseName)
+
+    let aRows = await endpoints.get('/v2.0/catalog/sets/', {}, baseName)
+
+    endpoints.save(aRows, baseName)
+
+    // get attributes for each set
+    baseName = 'attributes'
+    const aAttributes = []
+    for (const set of aRows) {
+      const setId = set.id
+      const attrs = await endpoints.get(`/v2.0/catalog/sets/${setId}/attributes`, {}, baseName)
+      aAttributes.push(attrs.map(attr => { return { set_id: setId, ...attr } }))
+    }
+    endpoints.save(aAttributes, baseName)
+  },
   exportProducts: async () => {
     // delete previous data
     const baseName = 'products'
@@ -407,5 +426,6 @@ const endpoints = {
 
 
 endpoints.exportCategories()
+  .then(() => endpoints.exportAttributes())
   .then(() => endpoints.exportProducts())
   .then(() => console.log('Import finished'))
