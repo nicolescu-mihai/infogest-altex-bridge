@@ -1,0 +1,23 @@
+{
+  "name": "infogest-emag-bridge",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "pkg index.js -o emag-bridge.exe"
+  },
+  "dependencies": {
+    "axios": "^0.21.4",
+    "crypto-js": "^4.2.0",
+    "json2csv": "^5.0.6",
+    "mathjs": "^9.4.5",
+    "minimist": "^1.2.5",
+    "sleep": "^6.3.0",
+    "xml2js": "^0.4.23"
+  },
+  "devDependencies": {
+    "eslint": "^7.32.0"
+  },
+  "repository": "https://github.com/nicolescu-mihai/infogest-altex-bridge.git",
+  "author": "Mihai Nicolescu <nicolescu.mihai@gmail.com>"
+}
