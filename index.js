@@ -124,63 +124,81 @@ const strCleanup = str => str
 
 const endpoints = {
   get: async (url, params, customName) => {
-    // API get
-    params = {
-      items_per_page: config.itemsPerPage,
-      page_nr: 1,
-      ...params
-    }
-
-    const options = {
-      headers: {
-        ...config.headers,
-        'X-Request-Signature': getSignature('GET', params, 'query')
-      },
-      timeout: config.timeout
-    }
-
-    // build final url
-    let fullUrl = getFullUrl(url, params)
-
-    if (config.save_curl) {
-      // save curl command
-      let curlString = `curl -X GET "${fullUrl}"` // params are in the path
-      for (const key in options.headers) {
-        curlString += ` -H "${key}: ${options.headers[key]}"`
-      }
-      const name = customName + '.cmd'
-      fs.writeFileSync(name, curlString)
-    }
-
     const items = []
-    let totalItems = null
-    while (totalItems === null || totalItems > items.length) {
-      // get the response
-      console.log(`GET ${fullUrl}`)
-      const response = await axios.get(`${fullUrl}`, options)
-      // push data
-      items.push(...response.data.data.items)
-      totalItems = parseInt(response.data.data.total_items) || 0
-      // prepare for next page
-      params.page_nr += 1
-      fullUrl = getFullUrl(url, params)
-      options.headers['X-Request-Signature'] = getSignature('GET', params, 'query')
-    }
+    try {
+      // API get
+      params = {
+        items_per_page: config.itemsPerPage,
+        page_nr: 1,
+        ...params
+      }
 
-    console.log(`totalItems: ${totalItems}, items.length: ${items.length}`)
+      const options = {
+        headers: {
+          ...config.headers,
+          'X-Request-Signature': getSignature('GET', params, 'query')
+        },
+        timeout: config.timeout
+      }
+
+      // build final url
+      let fullUrl = getFullUrl(url, params)
+
+      if (config.save_curl) {
+        // save curl command
+        let curlString = `curl -X GET "${fullUrl}"` // params are in the path
+        for (const key in options.headers) {
+          curlString += ` -H "${key}: ${options.headers[key]}"`
+        }
+        const name = customName + '.cmd'
+        fs.writeFileSync(name, curlString)
+      }
+
+      let totalItems = null
+      while (totalItems === null || totalItems > items.length) {
+        // get the response
+        console.log(`GET ${fullUrl}`)
+        let retries = 3
+        let response = null
+        while (retries > 0) {
+          try {
+            response = await axios.get(`${fullUrl}`, options)
+            break; // exit the retry loop if successful
+          } catch (error) {
+            console.log(`Error fetching ${fullUrl}: ${error.message}. Retrying... (${3 - retries + 1})`)
+            retries--;
+            if (retries === 0) {
+              console.log('Max retries reached. Exiting...')
+              throw error; // rethrow the error after max retries
+            }
+            // wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 2000)); // wait 2 seconds before retrying
+          }
+        }
+        // check if we have data
+        if (!response.data || !response.data.data || !response.data.data.items) {
+          console.log(`No data found for ${fullUrl}`)
+          break; // exit the loop if no data is found
+        }
+        // push data
+        items.push(...response.data.data.items)
+        totalItems = parseInt(response.data.data.total_items) || 0
+        // prepare for next page
+        params.page_nr += 1
+        fullUrl = getFullUrl(url, params)
+        options.headers['X-Request-Signature'] = getSignature('GET', params, 'query')
+      }
+
+      console.log(`totalItems: ${totalItems}`)
+
+    } catch (error) {
+      console.log('Error in GET request:', error.message)
+    }
     return items
   },
 
   post: async (url, params, resultRowsKey, customName) => {
     // API post
-    /* JSON like
-    {
-      "itemsPerPage": 1000,
-      "currentPage": 1,
-      "date_start": "2024-06-01",
-      "date_end": "2024-06-11"
-    }
-    */
     // console.log(`POST ${url}`)
     try {
       const aRows = []
@@ -403,6 +421,9 @@ const endpoints = {
 
     endpoints.save(aRows, baseName)
 
+    // filter sets to a specific list
+    aRows = aRows.filter(set => set.id === 331 || set.id === 669 || set.id === 585)
+
     // get attributes for each set
     baseName = 'attributes'
     const aAttributes = []
@@ -421,6 +442,46 @@ const endpoints = {
     const aRows = await endpoints.get('/v2.0/catalog/product/', {}, baseName)
 
     endpoints.save(aRows, baseName)
+  },
+  testAddProduct: async () => {
+    const product = {
+      category_id: 4,
+      ean: '1234567890123',
+      name: 'Test Product asjdghasdghlkjagsh lkzsjfhlksajg',
+      description: 'This is a test product ,kejhgfeywgfr wuet rowet rouetwy outruewo fryt',
+      attributes: {
+        "brand": 3755,
+        "culoare_global": [
+          54765
+        ],
+        "baby_tip_produs": 40415,
+        "jucarii_tip_functionare": 40842,
+        "material_multiselect_global": [
+          36216
+        ],
+        "varsta_text_global": 12,
+        "garantie_comerciala_global": 33738,
+        "garantie_conformitate_global": 33757,
+        "autonomie_h_global": "2h",
+        "capacitate_acumulator_global": 5,
+        "dimensiuni_l_x_a_x_i_cm_global": "20x60x20",
+        "greutate_kg_global": 30,
+        "greutate_suportata_global": 20,
+        "tensiune_v_text_global": 220,
+        "viteza_maxima": 20,
+        "material_roti": [
+          38306
+        ],
+        "baby_varsta_interval": [
+          40041
+        ]
+      },
+      images: {
+        "0": "https://cdna.altex.ro/resize/media/catalog/product//l/e/71ce502ca67d3b8e424e73cceebfdd7e/lenovo-ideapad-110_1.jpg",
+        "main": "https://cdna.altex.ro/resize/media/catalog/product//y/5/71ce502ca67d3b8e424e73cceebfdd7e/y520_1.jpg",
+        "energy_class_image": "https://cdna.altex.ro/resize/media/catalog/product//y/5/71ce502ca67d3b8e424e73cceebfdd7e/y520_1.jpg"
+      }
+    }
   }
 }
 
