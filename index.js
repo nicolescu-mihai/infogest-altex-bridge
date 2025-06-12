@@ -1,3 +1,9 @@
+/**
+ * Altex Marketplace API Bridge
+ * 
+ * Swagger: https://marketplace.altex.ro/api_doc
+ */
+
 const process = require('process')
 const argv = require('minimist')(process.argv.slice(2))
 const axios = require('axios')
@@ -364,7 +370,7 @@ const endpoints = {
     const baseName = 'categories'
     endpoints.delete(baseName)
 
-    const aRows = await endpoints.get('/v2.0/catalog/category/', {}, baseName)
+    const aRows = await endpoints.get('/v2.0/catalog/category/', { allowed: true}, baseName)
 
     endpoints.save(aRows, baseName)
   },
