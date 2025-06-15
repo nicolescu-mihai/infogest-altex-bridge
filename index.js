@@ -50,6 +50,25 @@ if (!argv.key) {
     + ' --enddate=[' + config.date_end + ']')
 }
 
+/**
+ * Generates a check digit from a partial EAN13.
+ * 
+ * https://www.gs1.org/services/how-calculate-check-digit-manually
+ * 
+ * @param {string} barcode - 12 digit EAN13 barcode without the check digit
+ */
+function checkDigitEAN13(barcode) {
+  const sum = barcode.split('')
+    .map((n, i) => n * (i % 2 ? 3 : 1)) // alternate between multiplying with 3 and 1
+    .reduce((sum, n) => sum + n, 0) // sum all values
+
+  const roundedUp = Math.ceil(sum / 10) * 10; // round sum to nearest 10
+
+  const checkDigit = roundedUp - sum; // subtract round to sum = check digit
+  
+  return checkDigit;
+}
+
 function encodeRFC3986URI(str) {
   return encodeURIComponent(str)
     .replace(
@@ -410,12 +429,25 @@ const endpoints = {
   testAddProduct: async () => {
     let res = null;
     let product = null;
+    let barcode = null;
     
     product = JSON.parse(fs.readFileSync('./data/test-product1.json', 'utf8'))
+    // generate a new barcode
+    // EAN13 barcode is 12 digits + 1 check digit
+    barcode = new Date().getTime().toString().substring(1, 13)
+    barcode = barcode + checkDigitEAN13(barcode)
+    product['0'].ean = barcode
+    product['0'].offer.seller_product_code = barcode
     res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
     console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
 
     product = JSON.parse(fs.readFileSync('./data/test-product2.json', 'utf8'))
+    // generate a new barcode
+    // EAN13 barcode is 12 digits + 1 check digit
+    barcode = new Date().getTime().toString().substring(1, 13)
+    barcode = barcode + checkDigitEAN13(barcode)
+    product['0'].ean = barcode
+    product['0'].offer.seller_product_code = barcode
     res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
     console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
   }
