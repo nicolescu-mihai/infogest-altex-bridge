@@ -156,6 +156,43 @@ const strCleanup = str => str
 
 const endpoints = {
   get: async (url, params, customName) => {
+    let data = {}
+    try {
+      // API get
+      params = {
+        ...params
+      }
+
+      const options = {
+        headers: {
+          ...config.headers,
+          'X-Request-Signature': getSignature('GET', params, 'query')
+        },
+        timeout: config.timeout
+      }
+
+      // build final url
+      let fullUrl = getFullUrl(url, params)
+
+      if (config.save_curl) {
+        // save curl command
+        let curlString = `curl -X GET "${fullUrl}"` // params are in the path
+        for (const key in options.headers) {
+          curlString += ` -H "${key}: ${options.headers[key]}"`
+        }
+        const name = customName + '.cmd'
+        fs.writeFileSync(name, curlString)
+      }
+
+      const response = await axios.get(`${fullUrl}`, options)
+      data = response.data.data || {}
+
+    } catch (error) {
+      console.log('Error in GET request:', error.message)
+    }
+    return data
+  },
+  getAll: async (url, params, customName) => {
     const items = []
     try {
       // API get
@@ -246,6 +283,31 @@ const endpoints = {
     } catch (error) {
       if (error.response) {
         console.log(`Error in POST request to ${fullUrl}`)
+        console.log(`Headers: ${JSON.stringify(options)}`)
+        console.log('Error data:', JSON.stringify(error.response.data))
+      }
+      console.log(error)
+      return error.response.data
+    }
+  },
+  put: async (url, data, customName) => {
+    // API post
+    // console.log(`PUT ${url}`)
+    const options = {
+      headers: {
+        ...config.headers,
+        'X-Request-Signature': getSignature('PUT', data, 'query') // no params for POST, so we use null
+      },
+      timeout: config.timeout
+    }
+    const fullUrl = `${config.root}${url}`
+    try {
+      const response = await axios.put(fullUrl, data, options)
+
+      return response
+    } catch (error) {
+      if (error.response) {
+        console.log(`Error in PUT request to ${fullUrl}`)
         console.log(`Headers: ${JSON.stringify(options)}`)
         console.log('Error data:', JSON.stringify(error.response.data))
       }
@@ -390,7 +452,7 @@ const endpoints = {
     const baseName = 'categories'
     endpoints.delete(baseName)
 
-    const aRows = await endpoints.get('/v2.0/catalog/category/', { allowed: true}, baseName)
+    const aRows = await endpoints.getAll('/v2.0/catalog/category/', { allowed: true}, baseName)
 
     endpoints.save(aRows, baseName)
   },
@@ -399,7 +461,7 @@ const endpoints = {
     let baseName = 'sets'
     endpoints.delete(baseName)
 
-    let aRows = await endpoints.get('/v2.0/catalog/sets/', {}, baseName)
+    let aRows = await endpoints.getAll('/v2.0/catalog/sets/', {}, baseName)
 
     endpoints.save(aRows, baseName)
 
@@ -411,7 +473,7 @@ const endpoints = {
     const aAttributes = []
     for (const set of aRows) {
       const setId = set.id
-      const attrs = await endpoints.get(`/v2.0/catalog/sets/${setId}/attributes`, {}, baseName)
+      const attrs = await endpoints.getAll(`/v2.0/catalog/sets/${setId}/attributes`, {}, baseName)
       // extract only relevant data
       aAttributes.push(...attrs.map(attr => { return { set_id: setId, code: attr.code, name: attr.name } }))
     }
@@ -422,7 +484,7 @@ const endpoints = {
     const baseName = 'products'
     endpoints.delete(baseName)
 
-    const aRows = await endpoints.get('/v2.0/catalog/product/', {}, baseName)
+    const aRows = await endpoints.getAll('/v2.0/catalog/product/', {}, baseName)
 
     endpoints.save(aRows, baseName)
   },
@@ -450,6 +512,34 @@ const endpoints = {
     product['0'].offer.seller_product_code = barcode
     res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
     console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testUpdateProduct: async () => {
+    let res = null;
+    let product = null;
+    let barcode = null;
+    let id = null;
+    
+    id = '684733f4907cd317215175f4' // test product 1
+    product =await endpoints.get(`/v2.0/catalog/product/${id}/`, {}, 'product')
+    product = JSON.parse(fs.readFileSync('./data/test-product1.json', 'utf8'))
+    // generate a new barcode
+    // EAN13 barcode is 12 digits + 1 check digit
+    barcode = new Date().getTime().toString().substring(1, 13)
+    barcode = barcode + checkDigitEAN13(barcode)
+    product['0'].ean = barcode
+    product['0'].offer.seller_product_code = barcode
+    res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
+    console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
+
+    product = JSON.parse(fs.readFileSync('./data/test-product2.json', 'utf8'))
+    // generate a new barcode
+    // EAN13 barcode is 12 digits + 1 check digit
+    barcode = new Date().getTime().toString().substring(1, 13)
+    barcode = barcode + checkDigitEAN13(barcode)
+    product['0'].ean = barcode
+    product['0'].offer.seller_product_code = barcode
+    res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
+    console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
   }
 }
 
@@ -458,7 +548,8 @@ async function main () {
     // await endpoints.exportCustomerInvoices()
     // await endpoints.exportCategories()
     // await endpoints.exportAttributes()
-    await endpoints.testAddProduct()
+    // await endpoints.testAddProduct()
+    await endpoints.testUpdateProduct()
     // await endpoints.exportProducts()
   } catch (error) {
     console.error('Error in main function:', error.message)
