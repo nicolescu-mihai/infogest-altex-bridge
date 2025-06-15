@@ -231,6 +231,7 @@ const endpoints = {
         console.log('Error data:', JSON.stringify(error.response.data))
       }
       console.log(error)
+      return error.response.data
     }
   },
   write: (data, fname) => {
@@ -407,8 +408,16 @@ const endpoints = {
     endpoints.save(aRows, baseName)
   },
   testAddProduct: async () => {
-    const product = JSON.parse(fs.readFileSync('./data/test-product1.json', 'utf8'))
-    endpoints.post('/v2.0/catalog/product/', product, 'product')
+    let res = null;
+    let product = null;
+    
+    product = JSON.parse(fs.readFileSync('./data/test-product1.json', 'utf8'))
+    res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
+    console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
+
+    product = JSON.parse(fs.readFileSync('./data/test-product2.json', 'utf8'))
+    res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
+    console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
   }
 }
 
