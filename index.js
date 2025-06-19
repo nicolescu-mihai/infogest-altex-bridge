@@ -35,6 +35,14 @@ const config = {
   save_curl: true,
   start_date: argv.startdate || oneWeekAgo,
   end_date: argv.enddate || today,
+  shipping_location_id: 1, // default shipping location id
+  sender_name: 'MERT SA', // default sender name for AWB generation
+  sender_contact_person: 'Test Contact Person', // default sender contact person for AWB generation
+  sender_phone: '0770123456', // default sender phone for AWB generation
+  sender_address: 'Strada Test, Nr. 1', // default sender address for AWB generation
+  sender_county: 'Ilfov', // default sender county for AWB generation
+  sender_city: 'Afumati', // default sender city for AWB generation
+  sender_postalcode: '077020', // default sender postal code for AWB generation
   model_fields: {
     // 'base-products': ["id", "name", "measureunit_code", "taxgroup_vat_rate", "label", "stock_alerts"],
   }
@@ -43,7 +51,7 @@ const config = {
 // console.log('argv', argv)
 if (!argv.key) {
   // eslint-disable-next-line max-len
-  console.log('Usage: emag-bridge.exe'
+  console.log('Usage: altex-bridge.exe'
     + ' --pubkey=[yuorPublicKey]'
     + ' --privkey=[yourAPIKey]'
     + ' --startdate=[' + config.start_date + ']'
@@ -360,6 +368,13 @@ const endpoints = {
       console.log(error)
     }
   },
+  getOrderDetails: async (orderId) => {
+    const baseName = `order_${orderId}`
+    endpoints.delete(baseName)
+    const orderDetail = await endpoints.get(`/v2.0/sales/order/${orderId}/`, {}, baseName)
+    endpoints.save(orderDetail, baseName)
+    return orderDetail
+  },
   exportOrders: async (startDate, endDate, status) => {
     const baseNameSint = 'orders_sint'
     const baseNameDet = 'orders_detail'
@@ -402,6 +417,24 @@ const endpoints = {
     endpoints.save(aSintRows, baseNameSint)
     endpoints.save(aDetRows, baseNameDet)
 
+  },
+  exportCouriers: async () => {
+    // delete previous data
+    const baseName = 'couriers'
+    endpoints.delete(baseName)
+
+    const aRows = await endpoints.getAll('/v2.0/sales/courier/', {}, baseName)
+
+    endpoints.save(aRows, baseName)
+  },
+  exportLocations: async () => {
+    // delete previous data
+    const baseName = 'locations'
+    endpoints.delete(baseName)
+
+    const aRows = await endpoints.getAll('/v2.0/sales/location/', {}, baseName)
+
+    endpoints.save(aRows, baseName)
   },
   exportCategories: async () => {
     // delete previous data
@@ -535,13 +568,49 @@ const endpoints = {
 
     const res = await endpoints.put(`/v2.0/sales/order/${orderId}/`, {status: status}, 'status')
     console.log('Response for test order update:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testGenerateAWB: async () => {
+    const orderId = 94140
+    const courierId = 7 // Cargus
+
+    const orderDetails = await endpoints.getOrderDetails(orderId)
+
+    const awbData = {
+      courier_id: courierId,
+      location_id: config.shipping_location_id,
+      destination_city: orderDetails.shipping_city,
+      sender_name: config.sender_name,
+      sender_contact_person: config.sender_contact_person,
+      sender_phone: config.sender_phone,
+      sender_address: config.sender_address,
+      sender_county: config.sender_county,
+      sender_city: config.sender_city,
+      sender_postalcode: config.sender_postalcode,
+      destination_contact_person: orderDetails.shipping_customer_name,
+      destination_phone: orderDetails.shipping_phone_number,
+      destination_address: orderDetails.shipping_address,
+      destination_county: orderDetails.shipping_region,
+      destination_postalcode: '',
+      order_packages: 1, // default to 1 package
+      order_weight: 20, // default to 2 kg
+      order_height: 20, // default to 20 cm
+      order_length: 20, // default to 20 cm
+      order_size: 20, // default to 20 cm
+      declared_value: orderDetails.total_price, // default to total price
+      order_awb_format: '0'
+    }
+
+    const res = await endpoints.post(`/v2.0/sales/order/${orderId}/awb/generate`, awbData, 'awb')
+    console.log('Response for test AWB generate:', JSON.stringify(res.message), JSON.stringify(res.data))
   }
 }
 
 async function main() {
   try {
-    await endpoints.testUpdateOrder()
-    await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
+    // await endpoints.testUpdateOrder()
+    // await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
+    await endpoints.exportCouriers()
+    await endpoints.exportLocations()
     // await endpoints.exportCategories()
     // await endpoints.exportAttributes()
     // await endpoints.testAddProduct()
@@ -551,6 +620,7 @@ async function main() {
     // await endpoints.testUpdateOffer()
     // await endpoints.exportOffers()
     // await endpoints.testUpdateStock()
+    await endpoints.testGenerateAWB()
   } catch (error) {
     console.error('Error in main function:', error.message)
   }
