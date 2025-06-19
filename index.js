@@ -65,7 +65,7 @@ function checkDigitEAN13(barcode) {
   const roundedUp = Math.ceil(sum / 10) * 10; // round sum to nearest 10
 
   const checkDigit = roundedUp - sum; // subtract round to sum = check digit
-  
+
   return checkDigit;
 }
 
@@ -137,7 +137,7 @@ function getFullUrl(url, params) {
   return fullUrl
 }
 
-async function sleep (seconds) {
+async function sleep(seconds) {
   return new Promise(resolve => {
     console.log(`Sleeping for ${seconds} seconds...`)
     setTimeout(() => resolve(), seconds * 1000)
@@ -392,7 +392,7 @@ const endpoints = {
       // console.log(orderDetail)
 
       // extract products
-      const products = (orderDetail.products || []).map(product => {return {...product, order_id: orderId}})
+      const products = (orderDetail.products || []).map(product => { return { ...product, order_id: orderId } })
       aDetRows.push(...products)
       // remove products from orderDetail
       delete orderDetail.products
@@ -408,7 +408,7 @@ const endpoints = {
     const baseName = 'categories'
     endpoints.delete(baseName)
 
-    const aRows = await endpoints.getAll('/v2.0/catalog/category/', { allowed: true}, baseName)
+    const aRows = await endpoints.getAll('/v2.0/catalog/category/', { allowed: true }, baseName)
 
     endpoints.save(aRows, baseName)
   },
@@ -444,11 +444,20 @@ const endpoints = {
 
     endpoints.save(aRows, baseName)
   },
+  exportOffers: async () => {
+    // delete previous data
+    const baseName = 'offers'
+    endpoints.delete(baseName)
+
+    const aRows = await endpoints.getAll('/v2.0/catalog/offer/', {}, baseName)
+
+    endpoints.save(aRows, baseName)
+  },
   testAddProduct: async () => {
     let res = null;
     let product = null;
     let barcode = null;
-    
+
     product = JSON.parse(fs.readFileSync('./data/test-product1.json', 'utf8'))
     // generate a new barcode
     // EAN13 barcode is 12 digits + 1 check digit
@@ -473,20 +482,48 @@ const endpoints = {
     let res = null;
     let product = null;
     let id = null;
-    
+
     id = '684733f4907cd317215175f4' // test product 1
-    product =await endpoints.get(`/v2.0/catalog/product/${id}/`, {}, 'product')
+    product = await endpoints.get(`/v2.0/catalog/product/${id}/`, {}, 'product')
     // change the description
     product.description += '\n' + new Date().getTime()
     product.attributes.price_unit = 'Pret/Bucata' // don't know the correct value
 
-    res = await endpoints.put(`/v2.0/catalog/product/${id}/`, {description: product.description, attributes:product.attributes}, 'product')
+    res = await endpoints.put(`/v2.0/catalog/product/${id}/`, { description: product.description, attributes: product.attributes }, 'product')
     console.log('Response for test product 1 update:', JSON.stringify(res.message), JSON.stringify(res.data))
-    
+
+  },
+  testAddOffer: async () => {
+
+    const offer = {
+      '0': {
+        'product_id': '684733f4907cd317215175f4', // test product 1
+        'stock': 123
+      }
+    }
+
+    const res = await endpoints.post(`/v2.0/catalog/offer/`, offer, 'offer')
+    console.log('Response for test offer add:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testUpdateOffer: async () => {
+
+    const offer = {
+      '0': {
+        'offer_id': '479968', // test product 1
+        'stock': [
+          {
+            'quantity': 123
+          }
+        ]
+      }
+    }
+
+    const res = await endpoints.put(`/v2.0/catalog/offer/`, offer, 'offer')
+    console.log('Response for test offer add:', JSON.stringify(res.message), JSON.stringify(res.data))
   }
 }
 
-async function main () {
+async function main() {
   try {
     await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
     // await endpoints.exportCategories()
@@ -494,6 +531,9 @@ async function main () {
     // await endpoints.testAddProduct()
     // await endpoints.testUpdateProduct()
     // await endpoints.exportProducts()
+    await endpoints.testAddOffer()
+    await endpoints.testUpdateOffer()
+    await endpoints.exportOffers()
   } catch (error) {
     console.error('Error in main function:', error.message)
   }
