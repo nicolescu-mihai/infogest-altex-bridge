@@ -33,8 +33,8 @@ const config = {
   save_xml: false,
   save_csv: true,
   save_curl: true,
-  date_start: argv.startdate || oneWeekAgo,
-  date_end: argv.enddate || today,
+  start_date: argv.startdate || oneWeekAgo,
+  end_date: argv.enddate || today,
   model_fields: {
     // 'base-products': ["id", "name", "measureunit_code", "taxgroup_vat_rate", "label", "stock_alerts"],
   }
@@ -46,8 +46,8 @@ if (!argv.key) {
   console.log('Usage: emag-bridge.exe'
     + ' --pubkey=[yuorPublicKey]'
     + ' --privkey=[yourAPIKey]'
-    + ' --startdate=[' + config.date_start + ']'
-    + ' --enddate=[' + config.date_end + ']')
+    + ' --startdate=[' + config.start_date + ']'
+    + ' --enddate=[' + config.end_date + ']')
 }
 
 /**
@@ -360,92 +360,37 @@ const endpoints = {
       console.log(error)
     }
   },
-  exportCustomerInvoices: async () => {
-    // delete previous data
-    endpoints.delete('invoices_sint')
-    endpoints.delete('invoices_det')
+  exportOrders: async (startDate, endDate, status) => {
+    const baseNameSint = 'orders_sint'
+    const baseNameDet = 'orders_detail'
+    endpoints.delete(baseNameSint)
+    endpoints.delete(baseNameDet)
 
-    const aCustomerInvoices = await endpoints.post('/customer-invoice/read', { date_start: config.date_start, date_end: config.date_end }, 'invoices', 'customer-invoices')
-    const aOrders = await endpoints.post('/order/read', { date_start: config.date_start, date_end: config.date_end }, null, 'orders')
-    // process data
-    const aSint = []
-    const aDet = []
-    for (const i of aCustomerInvoices) {
-      if (config.save_json) {
-        // save raw data
-        endpoints.write(JSON.stringify(i), `invoice_${i.number}.json`)
-      }
+    const ordersFilter = {}
+    if (startDate) ordersFilter.start_date = startDate
+    if (endDate) ordersFilter.end_date = endDate
+    if (status) ordersFilter.status = status
 
-      // flatten sint (no lines)
-      const sint = {
-        category: i.category,
-        order_id: i.order_id,
-        number: i.number,
-        date: i.date,
-        is_storno: i.is_storno,
-        supplier_name: strCleanup(i.supplier.name),
-        supplier_register_number: i.supplier.register_number,
-        supplier_cif: i.supplier.cif,
-        supplier_tax_code: i.supplier.tax_code,
-        supplier_social_capital: i.supplier.social_capital,
-        supplier_iban: i.supplier.iban,
-        supplier_bank: i.supplier.bank,
-        supplier_country: i.supplier.country,
-        supplier_address: strCleanup(i.supplier.address.replace(/\n/g, ' ')), // remove new lines
-        customer_name: strCleanup(i.customer.name),
-        customer_register_number: i.customer.register_number,
-        customer_cif: i.customer.cif,
-        customer_tax_code: i.customer.tax_code,
-        customer_iban: i.customer.iban,
-        customer_bank: i.customer.bank,
-        customer_country: i.customer.country,
-        customer_address: strCleanup(i.customer.address.replace(/\n/g, ' ')), // remove new lines
-        total_without_vat: i.total_without_vat,
-        total_vat_value: i.total_vat_value,
-        total_with_vat: i.total_with_vat,
-        currency: i.currency,
-      }
+    const aOrders = await endpoints.getAll('/v2.0/sales/order/', {}, baseNameSint)
 
-      // find order
-      const o = aOrders.find(o => o.id === i.order_id)
-      if (o) {
-        if (config.save_json) {
-          // save raw data
-          endpoints.write(JSON.stringify(i), `order_${o.id}.json`)
-        }
-        sint.order_type = o.type
-        sint.order_date = o.date
-        sint.order_payment_mode = o.payment_mode
-        sint.order_detailed_payment_method = o.detailed_payment_method
-        sint.order_delivery_mode = o.delivery_mode
-        sint.order_observation = o.observation
-        sint.order_status = o.status
-        sint.order_payment_status = o.payment_status
-        sint.customer_company = o.customer.company
-        sint.customer_phone_1 = o.customer.phone_1
-        sint.customer_id = o.customer.id
-        sint.customer_is_vat_payer = o.customer.is_vat_payer
-        sint.customer_legal_entity = o.customer.legal_entity
-        sint.customer_billing_suburb = o.customer.billing_suburb
-        sint.customer_billing_city = o.customer.billing_city
-        sint.customer_billing_postal_code = o.customer.billing_postal_code
-        sint.shipping_tax = o.shipping_tax
-      } else {
-        console.log(`Order ${i.order_id} not found for invoice ${i.number}`)
-      }
+    let aSintRows = []
+    let aDetRows = []
+    for (const order of aOrders) {
+      const orderId = order.order_id
+      const orderDetail = await endpoints.get(`/v2.0/sales/order/${orderId}/`, {}, baseNameDet)
+      // console.log(orderDetail)
 
-      aSint.push(sint)
-
-      for (const p of o.products) {
-        const det = {
-          invoice_number: i.number,
-          ...p
-        }
-        aDet.push(det)
-      }
+      // extract products
+      const products = (orderDetail.products || []).map(product => {return {...product, order_id: orderId}})
+      aDetRows.push(...products)
+      // remove products from orderDetail
+      delete orderDetail.products
+      // add order to sint rows
+      aSintRows.push(orderDetail)
     }
-    endpoints.save(aSint, 'invoices_sint')
-    endpoints.save(aDet, 'invoices_det')
+    endpoints.save(aSintRows, baseNameSint)
+    endpoints.save(aDetRows, baseNameDet)
+
   },
   exportCategories: async () => {
     // delete previous data
@@ -516,40 +461,27 @@ const endpoints = {
   testUpdateProduct: async () => {
     let res = null;
     let product = null;
-    let barcode = null;
     let id = null;
     
     id = '684733f4907cd317215175f4' // test product 1
     product =await endpoints.get(`/v2.0/catalog/product/${id}/`, {}, 'product')
-    product = JSON.parse(fs.readFileSync('./data/test-product1.json', 'utf8'))
-    // generate a new barcode
-    // EAN13 barcode is 12 digits + 1 check digit
-    barcode = new Date().getTime().toString().substring(1, 13)
-    barcode = barcode + checkDigitEAN13(barcode)
-    product['0'].ean = barcode
-    product['0'].offer.seller_product_code = barcode
-    res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
-    console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
+    // change the description
+    product.description += '\n' + new Date().getTime()
+    product.attributes.price_unit = 'Pret/Bucata' // don't know the correct value
 
-    product = JSON.parse(fs.readFileSync('./data/test-product2.json', 'utf8'))
-    // generate a new barcode
-    // EAN13 barcode is 12 digits + 1 check digit
-    barcode = new Date().getTime().toString().substring(1, 13)
-    barcode = barcode + checkDigitEAN13(barcode)
-    product['0'].ean = barcode
-    product['0'].offer.seller_product_code = barcode
-    res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
-    console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
+    res = await endpoints.put(`/v2.0/catalog/product/${id}/`, {description: product.description, attributes:product.attributes}, 'product')
+    console.log('Response for test product 1 update:', JSON.stringify(res.message), JSON.stringify(res.data))
+    
   }
 }
 
 async function main () {
   try {
-    // await endpoints.exportCustomerInvoices()
+    await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
     // await endpoints.exportCategories()
     // await endpoints.exportAttributes()
     // await endpoints.testAddProduct()
-    await endpoints.testUpdateProduct()
+    // await endpoints.testUpdateProduct()
     // await endpoints.exportProducts()
   } catch (error) {
     console.error('Error in main function:', error.message)
