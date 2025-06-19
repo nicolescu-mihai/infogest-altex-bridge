@@ -510,11 +510,7 @@ const endpoints = {
     const offer = {
       '0': {
         'offer_id': '479968', // test product 1
-        'stock': [
-          {
-            'quantity': 123
-          }
-        ]
+        'stock': 123
       }
     }
 
