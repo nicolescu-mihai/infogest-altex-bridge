@@ -516,6 +516,18 @@ const endpoints = {
 
     const res = await endpoints.put(`/v2.0/catalog/offer/`, offer, 'offer')
     console.log('Response for test offer add:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testUpdateStock: async () => {
+
+    const stock = {
+      '0': {
+        'offer_id': '479968', // test product 1
+        'stock': 123
+      }
+    }
+
+    const res = await endpoints.put(`/v2.0/catalog/stock/`, stock, 'stock')
+    console.log('Response for test stock update:', JSON.stringify(res.message), JSON.stringify(res.data))
   }
 }
 
@@ -527,9 +539,10 @@ async function main() {
     // await endpoints.testAddProduct()
     // await endpoints.testUpdateProduct()
     // await endpoints.exportProducts()
-    await endpoints.testAddOffer()
-    await endpoints.testUpdateOffer()
+    // await endpoints.testAddOffer()
+    // await endpoints.testUpdateOffer()
     await endpoints.exportOffers()
+    await endpoints.testUpdateStock()
   } catch (error) {
     console.error('Error in main function:', error.message)
   }
