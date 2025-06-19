@@ -528,11 +528,19 @@ const endpoints = {
 
     const res = await endpoints.put(`/v2.0/catalog/stock/`, stock, 'stock')
     console.log('Response for test stock update:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testUpdateOrder: async () => {
+    const status = 2 // In Progress
+    const orderId = 94140
+
+    const res = await endpoints.put(`/v2.0/sales/order/${orderId}/`, {status: status}, 'status')
+    console.log('Response for test order update:', JSON.stringify(res.message), JSON.stringify(res.data))
   }
 }
 
 async function main() {
   try {
+    await endpoints.testUpdateOrder()
     await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
     // await endpoints.exportCategories()
     // await endpoints.exportAttributes()
@@ -541,8 +549,8 @@ async function main() {
     // await endpoints.exportProducts()
     // await endpoints.testAddOffer()
     // await endpoints.testUpdateOffer()
-    await endpoints.exportOffers()
-    await endpoints.testUpdateStock()
+    // await endpoints.exportOffers()
+    // await endpoints.testUpdateStock()
   } catch (error) {
     console.error('Error in main function:', error.message)
   }
