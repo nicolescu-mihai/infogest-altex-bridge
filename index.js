@@ -370,6 +370,17 @@ const endpoints = {
     if (startDate) ordersFilter.start_date = startDate
     if (endDate) ordersFilter.end_date = endDate
     if (status) ordersFilter.status = status
+    // Id	Status
+    // 1	Registered
+    // 2	In Progress
+    // 3	Partial Shipped
+    // 4	Shipped
+    // 5	Partial Returned
+    // 6	Returned
+    // 7	Cancelled
+    // 8	Ready to be shipped
+    // 9	Completed
+    // 10	Technical cancelling
 
     const aOrders = await endpoints.getAll('/v2.0/sales/order/', {}, baseNameSint)
 
