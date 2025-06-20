@@ -276,16 +276,20 @@ const endpoints = {
   post: async (url, data, customName) => {
     // API post
     // console.log(`POST ${url}`)
+    const bodyMode = (data.media ? 'formdata' : 'query')
     const options = {
       headers: {
         ...config.headers,
-        'X-Request-Signature': getSignature('POST', data, 'query') // no params for POST, so we use null
+        'X-Request-Signature': getSignature('POST', data, bodyMode) // no params for POST, so we use null
       },
       timeout: config.timeout
     }
     const fullUrl = `${config.root}${url}`
+    let response = null
     try {
-      const response = await axios.post(fullUrl, data, options)
+      if (bodyMode === 'formdata') options.headers['Content-Type'] = `multipart/form-data`
+
+      response = await axios.post(fullUrl, data, options)
 
       return response
     } catch (error) {
@@ -300,16 +304,19 @@ const endpoints = {
   },
   put: async (url, data, customName) => {
     // API post
+    const bodyMode = (data.media ? 'formdata' : 'query')
     // console.log(`PUT ${url}`)
     const options = {
       headers: {
         ...config.headers,
-        'X-Request-Signature': getSignature('PUT', data, 'query') // no params for POST, so we use null
+        'X-Request-Signature': getSignature('PUT', data, bodyMode) // no params for POST, so we use null
       },
       timeout: config.timeout
     }
     const fullUrl = `${config.root}${url}`
     try {
+      if (bodyMode === 'formdata') options.headers['Content-Type'] = `multipart/form-data`
+
       const response = await axios.put(fullUrl, data, options)
 
       return response
@@ -322,6 +329,43 @@ const endpoints = {
       console.log(error)
       return error.response.data
     }
+  },
+  delete: async (url, params, customName) => {
+    let data = {}
+    try {
+      // API get
+      params = {
+        ...params
+      }
+
+      const options = {
+        headers: {
+          ...config.headers,
+          'X-Request-Signature': getSignature('DELETE', params, 'query')
+        },
+        timeout: config.timeout
+      }
+
+      // build final url
+      let fullUrl = getFullUrl(url, params)
+
+      if (config.save_curl) {
+        // save curl command
+        let curlString = `curl -X DELETE "${fullUrl}"` // params are in the path
+        for (const key in options.headers) {
+          curlString += ` -H "${key}: ${options.headers[key]}"`
+        }
+        const name = customName + '.cmd'
+        fs.writeFileSync(name, curlString)
+      }
+
+      const response = await axios.delete(`${fullUrl}`, options)
+      data = response.data.data || {}
+
+    } catch (error) {
+      console.log('Error in DELETE request:', error.message)
+    }
+    return data
   },
   write: (data, fname) => {
     try {
@@ -354,7 +398,7 @@ const endpoints = {
       endpoints.write(csv, `${fname}.csv`)
     }
   },
-  delete: (fname) => {
+  deleteFile: (fname) => {
     try {
       const jsonName = `${fname}.json`
       if (fs.existsSync(jsonName)) fs.unlinkSync(jsonName)
@@ -370,7 +414,7 @@ const endpoints = {
   },
   getOrderDetails: async (orderId) => {
     const baseName = `order_${orderId}`
-    endpoints.delete(baseName)
+    endpoints.deleteFile(baseName)
     const orderDetail = await endpoints.get(`/v2.0/sales/order/${orderId}/`, {}, baseName)
     endpoints.save(orderDetail, baseName)
     return orderDetail
@@ -378,8 +422,8 @@ const endpoints = {
   exportOrders: async (startDate, endDate, status) => {
     const baseNameSint = 'orders_sint'
     const baseNameDet = 'orders_detail'
-    endpoints.delete(baseNameSint)
-    endpoints.delete(baseNameDet)
+    endpoints.deleteFile(baseNameSint)
+    endpoints.deleteFile(baseNameDet)
 
     const ordersFilter = {}
     if (startDate) ordersFilter.start_date = startDate
@@ -421,7 +465,7 @@ const endpoints = {
   exportCouriers: async () => {
     // delete previous data
     const baseName = 'couriers'
-    endpoints.delete(baseName)
+    endpoints.deleteFile(baseName)
 
     const aRows = await endpoints.getAll('/v2.0/sales/courier/', {}, baseName)
 
@@ -430,7 +474,7 @@ const endpoints = {
   exportLocations: async () => {
     // delete previous data
     const baseName = 'locations'
-    endpoints.delete(baseName)
+    endpoints.deleteFile(baseName)
 
     const aRows = await endpoints.getAll('/v2.0/sales/location/', {}, baseName)
 
@@ -439,7 +483,7 @@ const endpoints = {
   exportCategories: async () => {
     // delete previous data
     const baseName = 'categories'
-    endpoints.delete(baseName)
+    endpoints.deleteFile(baseName)
 
     const aRows = await endpoints.getAll('/v2.0/catalog/category/', { allowed: true }, baseName)
 
@@ -448,7 +492,7 @@ const endpoints = {
   exportAttributes: async () => {
     // delete previous data
     let baseName = 'sets'
-    endpoints.delete(baseName)
+    endpoints.deleteFile(baseName)
 
     let aRows = await endpoints.getAll('/v2.0/catalog/sets/', {}, baseName)
 
@@ -471,7 +515,7 @@ const endpoints = {
   exportProducts: async () => {
     // delete previous data
     const baseName = 'products'
-    endpoints.delete(baseName)
+    endpoints.deleteFile(baseName)
 
     const aRows = await endpoints.getAll('/v2.0/catalog/product/', {}, baseName)
 
@@ -480,7 +524,7 @@ const endpoints = {
   exportOffers: async () => {
     // delete previous data
     const baseName = 'offers'
-    endpoints.delete(baseName)
+    endpoints.deleteFile(baseName)
 
     const aRows = await endpoints.getAll('/v2.0/catalog/offer/', {}, baseName)
 
@@ -566,7 +610,7 @@ const endpoints = {
     const status = 2 // In Progress
     const orderId = 94140
 
-    const res = await endpoints.put(`/v2.0/sales/order/${orderId}/`, {status: status}, 'status')
+    const res = await endpoints.put(`/v2.0/sales/order/${orderId}/`, { status: status }, 'status')
     console.log('Response for test order update:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testGenerateAWB: async () => {
@@ -602,25 +646,45 @@ const endpoints = {
 
     const res = await endpoints.post(`/v2.0/sales/order/${orderId}/awb/generate`, awbData, 'awb')
     console.log('Response for test AWB generate:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testAddInvoice: async () => {
+    const orderId = 94140
+    const invoiceData = {
+      'media': fs.createReadStream('./data/test-invoice.pdf'), // invoice PDF file
+      'name': 'test-invoice.pdf', // name of the invoice file
+      'products': ['105004'],
+      'invoice_number': 'MERT107659',
+    }
+
+    const res = await endpoints.post(`/v2.0/sales/order/${orderId}/invoice/`, invoiceData, 'invoice')
+    console.log('Response for test invoice add:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testDeleteInvoice: async () => {
+    const orderId = 94140
+
+    const res = await endpoints.delete(`/v2.0/sales/order/${orderId}/invoice/`, {}, 'invoice')
+    console.log('Response for test invoice delete:', JSON.stringify(res.message), JSON.stringify(res.data))
   }
 }
 
 async function main() {
   try {
     // await endpoints.testUpdateOrder()
-    // await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
-    await endpoints.exportCouriers()
-    await endpoints.exportLocations()
+    await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
+    // await endpoints.exportCouriers()
+    // await endpoints.exportLocations()
     // await endpoints.exportCategories()
     // await endpoints.exportAttributes()
     // await endpoints.testAddProduct()
     // await endpoints.testUpdateProduct()
-    // await endpoints.exportProducts()
+    await endpoints.exportProducts()
     // await endpoints.testAddOffer()
     // await endpoints.testUpdateOffer()
     // await endpoints.exportOffers()
     // await endpoints.testUpdateStock()
-    await endpoints.testGenerateAWB()
+    // await endpoints.testGenerateAWB()
+    // await endpoints.testAddInvoice()
+    // await endpoints.testDeleteInvoice()
   } catch (error) {
     console.error('Error in main function:', error.message)
   }
