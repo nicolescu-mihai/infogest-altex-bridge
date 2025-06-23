@@ -427,7 +427,7 @@ const endpoints = {
   },
   exportOrders: async (startDate, endDate, status) => {
     const baseNameSint = 'orders_sint'
-    const baseNameDet = 'orders_detail'
+    const baseNameDet = 'orders_det'
     const baseNameAwb = 'orders_awb'
     const baseNameInvoice = 'orders_invoices'
     endpoints.deleteFile(baseNameSint)
