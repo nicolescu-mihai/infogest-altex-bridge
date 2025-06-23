@@ -58,7 +58,10 @@ if (!argv.key) {
     + ' --pubkey=[yuorPublicKey]'
     + ' --privkey=[yourAPIKey]'
     + ' --startdate=[' + config.start_date + ']'
-    + ' --enddate=[' + config.end_date + ']')
+    + ' --enddate=[' + config.end_date + ']'
+    + ' --cmd=[command]'
+    + ' --params=[params]'
+  )
 }
 
 /**
@@ -750,6 +753,19 @@ const endpoints = {
 
 async function main() {
   try {
+    if (argv.cmd && typeof endpoints[argv.cmd] === 'function') {
+      // run a specific command
+      console.log(`Running command: ${argv.cmd}`)
+      
+      if (argv.params) {
+        const params = JSON.parse(argv.params) || {}
+        await endpoints[argv.cmd](params)
+      } else {
+        await endpoints[argv.cmd]()
+      }
+      
+      return
+    }
     // await endpoints.testUpdateOrder()
     await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
     await endpoints.exportRMAs(config.start_date, null) // do not filter by status
@@ -767,8 +783,8 @@ async function main() {
     // await endpoints.testGenerateAWB()
     // await endpoints.testAddInvoice()
     // await endpoints.testDeleteInvoice()
-    await endpoints.testAddRMAInvoice()
-    await endpoints.testDeleteRMAInvoice()
+    // await endpoints.testAddRMAInvoice()
+    // await endpoints.testDeleteRMAInvoice()
   } catch (error) {
     console.error('Error in main function:', error.message)
   }

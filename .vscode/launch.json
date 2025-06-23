@@ -12,7 +12,10 @@
       "skipFiles": [
         "<node_internals>/**"
       ],
-      "program": "${workspaceFolder}\\index.js"
+      "program": "${workspaceFolder}\\index.js",
+      "args": [
+        "--cmd=INVALIDexportProducts"
+      ],
     }
   ]
 }
