@@ -26297,7 +26297,7 @@ const endpoints = {
   },
   exportOrders: async (startDate, endDate, status) => {
     const baseNameSint = 'orders_sint'
-    const baseNameDet = 'orders_detail'
+    const baseNameDet = 'orders_det'
     const baseNameAwb = 'orders_awb'
     const baseNameInvoice = 'orders_invoices'
     endpoints.deleteFile(baseNameSint)
@@ -26361,7 +26361,7 @@ const endpoints = {
   },
   exportRMAs: async (startDate, status) => {
     const baseNameSint = 'rmas_sint'
-    const baseNameDet = 'rmas_detail'
+    const baseNameDet = 'rmas_det'
     endpoints.deleteFile(baseNameSint)
     endpoints.deleteFile(baseNameDet)
 
@@ -26626,7 +26626,14 @@ async function main() {
     if (argv.cmd && typeof endpoints[argv.cmd] === 'function') {
       // run a specific command
       console.log(`Running command: ${argv.cmd}`)
-      await endpoints[argv.cmd](...argv.params ? argv.params.split(',') : [])
+      
+      if (argv.params) {
+        const params = JSON.parse(argv.params) || {}
+        await endpoints[argv.cmd](params)
+      } else {
+        await endpoints[argv.cmd]()
+      }
+      
       return
     }
     // await endpoints.testUpdateOrder()
