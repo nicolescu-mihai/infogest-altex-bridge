@@ -491,7 +491,7 @@ const endpoints = {
   },
   exportRMAs: async (startDate, status) => {
     const baseNameSint = 'rmas_sint'
-    const baseNameDet = 'rmas_detail'
+    const baseNameDet = 'rmas_det'
     endpoints.deleteFile(baseNameSint)
     endpoints.deleteFile(baseNameDet)
 
