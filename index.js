@@ -2,6 +2,9 @@
  * Altex Marketplace API Bridge
  * 
  * Swagger: https://marketplace.altex.ro/api_doc
+ * 
+ * Web admin stage: https://mkp-stage.altex.ro/admin
+ * 
  */
 
 const process = require('process')
@@ -422,8 +425,12 @@ const endpoints = {
   exportOrders: async (startDate, endDate, status) => {
     const baseNameSint = 'orders_sint'
     const baseNameDet = 'orders_detail'
+    const baseNameAwb = 'orders_awb'
+    const baseNameInvoice = 'orders_invoices'
     endpoints.deleteFile(baseNameSint)
     endpoints.deleteFile(baseNameDet)
+    endpoints.deleteFile(baseNameAwb)
+    endpoints.deleteFile(baseNameInvoice)
 
     const ordersFilter = {}
     if (startDate) ordersFilter.start_date = startDate
@@ -445,6 +452,8 @@ const endpoints = {
 
     let aSintRows = []
     let aDetRows = []
+    let aAwbRows = []
+    let aInvoiceRows = []
     for (const order of aOrders) {
       const orderId = order.order_id
       const orderDetail = await endpoints.get(`/v2.0/sales/order/${orderId}/`, {}, baseNameDet)
@@ -455,8 +464,62 @@ const endpoints = {
       aDetRows.push(...products)
       // remove products from orderDetail
       delete orderDetail.products
+
+      // extract awbs
+      const awbs = (orderDetail.awbs || []).map(awb => { return { ...awb, order_id: orderId } })
+      aAwbRows.push(...awbs)
+      // remove awbs from orderDetail
+      delete orderDetail.awbs
+
+      // extract invoices
+      const invoices = (orderDetail.invoices || []).map(invoice => { return { ...invoice, order_id: orderId } })
+      aInvoiceRows.push(...invoices)
+      // remove invoices from orderDetail
+      delete orderDetail.invoices
+
       // add order to sint rows
       aSintRows.push(orderDetail)
+    }
+    endpoints.save(aSintRows, baseNameSint)
+    endpoints.save(aDetRows, baseNameDet)
+    endpoints.save(aAwbRows, baseNameAwb)
+    endpoints.save(aInvoiceRows, baseNameInvoice)
+
+  },
+  exportRMAs: async (startDate, status) => {
+    const baseNameSint = 'rmas_sint'
+    const baseNameDet = 'rmas_detail'
+    endpoints.deleteFile(baseNameSint)
+    endpoints.deleteFile(baseNameDet)
+
+    const rmasFilter = {}
+    if (startDate) rmasFilter.created_at = startDate
+    if (status) rmasFilter.status = status
+    // Id	Status
+    // 1	Registered
+    // 2	In Progress
+    // 3	Received
+    // 4	Resolved
+    // 5	Cancelled
+    // 6	Visualized
+
+    const aRMAs = await endpoints.getAll('/v2.0/sales/rma/', {}, baseNameSint)
+
+    let aSintRows = []
+    let aDetRows = []
+    for (const rma of aRMAs) {
+      const rmaId = rma.rma_id
+      const rmaDetail = await endpoints.get(`/v2.0/sales/rma/${rmaId}/`, {}, baseNameDet)
+      // console.log(rmaDetail)
+
+      // extract products
+      const products = (rmaDetail.products || []).map(product => { return { ...product, rma_id: rmaId } })
+      aDetRows.push(...products)
+      // remove products from rmaDetail
+      delete rmaDetail.products
+
+      // add rma to sint rows
+      aSintRows.push(rmaDetail)
     }
     endpoints.save(aSintRows, baseNameSint)
     endpoints.save(aDetRows, baseNameDet)
@@ -664,6 +727,24 @@ const endpoints = {
 
     const res = await endpoints.delete(`/v2.0/sales/order/${orderId}/invoice/`, {}, 'invoice')
     console.log('Response for test invoice delete:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testAddRMAInvoice: async () => {
+    const rmaId = 2764
+    const rmaData = {
+      'media': fs.createReadStream('./data/test-invoice.pdf'), // invoice PDF file
+      'name': 'test-invoice.pdf', // name of the invoice file
+      'products': ['2777'],
+      'invoice_number': 'MERT107659',
+    }
+
+    const res = await endpoints.post(`/v2.0/sales/rma/${rmaId}/invoice/`, rmaData, 'rma')
+    console.log('Response for test RMA invoice add:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testDeleteRMAInvoice: async () => {
+    const rmaId = 2764
+
+    const res = await endpoints.delete(`/v2.0/sales/rma/${rmaId}/invoice/`, {}, 'rma')
+    console.log('Response for test RMA invoice delete:', JSON.stringify(res.message), JSON.stringify(res.data))
   }
 }
 
@@ -671,8 +752,9 @@ async function main() {
   try {
     // await endpoints.testUpdateOrder()
     await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
+    await endpoints.exportRMAs(config.start_date, null) // do not filter by status
     // await endpoints.exportCouriers()
-    // await endpoints.exportLocations()
+    await endpoints.exportLocations()
     // await endpoints.exportCategories()
     // await endpoints.exportAttributes()
     // await endpoints.testAddProduct()
@@ -685,6 +767,8 @@ async function main() {
     // await endpoints.testGenerateAWB()
     // await endpoints.testAddInvoice()
     // await endpoints.testDeleteInvoice()
+    await endpoints.testAddRMAInvoice()
+    await endpoints.testDeleteRMAInvoice()
   } catch (error) {
     console.error('Error in main function:', error.message)
   }
