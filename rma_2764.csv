@@ -1,0 +1,2 @@
+"rma_id","order_id","rma_status","customer_name","customer_phone_number","created_date","customer_street","customer_city","customer_region","products"
+2764,94144,12,"Popescu Ion","0751016597","2025-06-23T09:51:56+00:00","Popesti Vest 31","POPESTI-LEORDENI","Ilfov","[{""name"":""GEL DE DUS  LE JARDIN ORHIDEE ATX"",""id"":""684731d0930be772537e950e"",""action"":2,""reason"":3,""rma_line_id"":2777}]"

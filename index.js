@@ -489,6 +489,13 @@ const endpoints = {
     endpoints.save(aInvoiceRows, baseNameInvoice)
 
   },
+  getRMADetails: async (rmaId) => {
+    const baseName = `rma_${rmaId}`
+    endpoints.deleteFile(baseName)
+    const res = await endpoints.get(`/v2.0/sales/rma/${rmaId}/`, {}, baseName)
+    endpoints.save(res, baseName)
+    return res
+  },
   exportRMAs: async (startDate, status) => {
     const baseNameSint = 'rmas_sint'
     const baseNameDet = 'rmas_det'
@@ -748,7 +755,49 @@ const endpoints = {
 
     const res = await endpoints.delete(`/v2.0/sales/rma/${rmaId}/invoice/`, {}, 'rma')
     console.log('Response for test RMA invoice delete:', JSON.stringify(res.message), JSON.stringify(res.data))
-  }
+  },
+  testGenerateRMAawb: async () => {
+    const rmaId = 2764
+    const courierId = 7 // Cargus
+
+    const rmaDetails = await endpoints.getRMADetails(rmaId)
+    const orderDetails = await endpoints.getOrderDetails(rmaDetails.order_id)
+
+    const awbData = {
+      courier_id: courierId,
+      destination_city: config.sender_city,
+      sender_name: orderDetails.shipping_customer_name,
+      seller_name: config.sender_name,
+      tertiary_client_id: 1005962049, // default tertiary client id - hardcoded
+      order_envelopes: 0,
+      order_shipping_payment: 0,
+      pickup_start_date: new Date().toISOString(), // current date
+      pickup_end_date: new Date(new Date().setDate(new Date().getDate() + 2)).toISOString(), // over next day
+      price_table_id: '',
+      sender_contact_person: config.sender_contact_person,
+      destination_return_address: orderDetails.shipping_address,
+      sender_phone: orderDetails.shipping_phone_number,
+      sender_address: orderDetails.shipping_address,
+      sender_county: orderDetails.shipping_region,
+      sender_city: orderDetails.shipping_city,
+      sender_postalcode: '',
+      destination_contact_person: config.sender_contact_person,
+      destination_phone: config.sender_phone,
+      destination_address: config.sender_address,
+      destination_county: config.sender_county,
+      destination_postalcode: config.sender_postalcode,
+      order_packages: 1,
+      order_weight: 2,
+      order_height: 2,
+      order_length: 2,
+      order_size: 1,
+      declared_value: orderDetails.total_price, // default to total price
+      order_awb_format: '0',
+    }
+
+    const res = await endpoints.post(`/v2.0/sales/rma/${rmaId}/awb/generate`, awbData, 'awb')
+    console.log('Response for test RMA AWB generate:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
 }
 
 async function main() {
@@ -767,15 +816,15 @@ async function main() {
       return
     }
     // await endpoints.testUpdateOrder()
-    await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
-    await endpoints.exportRMAs(config.start_date, null) // do not filter by status
+    // await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
+    // await endpoints.exportRMAs(config.start_date, null) // do not filter by status
     // await endpoints.exportCouriers()
-    await endpoints.exportLocations()
+    // await endpoints.exportLocations()
     // await endpoints.exportCategories()
     // await endpoints.exportAttributes()
     // await endpoints.testAddProduct()
     // await endpoints.testUpdateProduct()
-    await endpoints.exportProducts()
+    // await endpoints.exportProducts()
     // await endpoints.testAddOffer()
     // await endpoints.testUpdateOffer()
     // await endpoints.exportOffers()
@@ -785,6 +834,7 @@ async function main() {
     // await endpoints.testDeleteInvoice()
     // await endpoints.testAddRMAInvoice()
     // await endpoints.testDeleteRMAInvoice()
+    // await endpoints.testGenerateRMAawb()
   } catch (error) {
     console.error('Error in main function:', error.message)
   }
