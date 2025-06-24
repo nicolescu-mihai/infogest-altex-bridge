@@ -14,7 +14,8 @@
       ],
       "program": "${workspaceFolder}\\index.js",
       "args": [
-        "--cmd=INVALIDexportProducts"
+        "--cmd=INVALIDexportOrders",
+        "--params=1",
       ],
     }
   ]

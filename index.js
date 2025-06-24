@@ -839,7 +839,7 @@ async function main() {
       console.log(`Running command: ${argv.cmd}`)
       
       if (argv.params) {
-        const params = JSON.parse(argv.params) || {}
+        const params = JSON.parse(argv.params)
         await endpoints[argv.cmd](params)
       } else {
         await endpoints[argv.cmd]()
