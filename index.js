@@ -20,9 +20,14 @@ const today = new Date().toISOString().split('T')[0];
 
 const config = {
 
-  root: 'https://mkp-stage.altex.ro', // 'https://mkp.altex.ro', // production
+  // stage
+  root: argv.apiroot || 'https://mkp-stage.altex.ro',
   publicKey: argv.pubkey || 'cabdd74122382757e92466e746c4c8d5',
   privateKey: argv.privkey || 'cd7d193768936e10a137e1e5d687c761',
+  // prod
+  // root: argv.apiroot || 'https://marketplace.altex.ro',
+  // publicKey: argv.pubkey || '3d32d6920bf4ac948025551e8d07ecf6',
+  // privateKey: argv.privkey || '56a83ac84476f0f475bcf072e11f6c2a',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -569,6 +574,36 @@ const endpoints = {
     }
     return res
   },
+  generateOrderAWB: async (orderId) => {
+    const orderDetails = await endpoints.getOrderDetails(orderId)
+    const awbData = {
+      courier_id: config.courier_id,
+      location_id: config.shipping_location_id,
+      destination_city: orderDetails.shipping_city,
+      sender_name: config.sender_name,
+      sender_contact_person: config.sender_contact_person,
+      sender_phone: config.sender_phone,
+      sender_address: config.sender_address,
+      sender_county: config.sender_county,
+      sender_city: config.sender_city,
+      sender_postalcode: config.sender_postalcode,
+      destination_contact_person: orderDetails.shipping_customer_name,
+      destination_phone: orderDetails.shipping_phone_number,
+      destination_address: orderDetails.shipping_address,
+      destination_county: orderDetails.shipping_region,
+      destination_postalcode: '',
+      order_packages: 1, // default to 1 package
+      order_weight: 20, // default to 2 kg
+      order_height: 20, // default to 20 cm
+      order_length: 20, // default to 20 cm
+      order_size: 1, // one package
+      declared_value: orderDetails.total_price, // default to total price
+      order_awb_format: '0'
+    }
+
+    const res = await endpoints.post(`/v2.0/sales/order/${orderId}/awb/generate`, awbData, 'awb')
+    console.log('Response for generateOrderAWB:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
   getRMADetails: async (rmaId) => {
     const baseName = `rma_${rmaId}`
     endpoints.deleteFile(baseName)
@@ -664,6 +699,13 @@ const endpoints = {
       aAttributes.push(...attrs.map(attr => { return { set_id: setId, code: attr.code, name: attr.name } }))
     }
     endpoints.save(aAttributes, baseName)
+  },
+  getProductDetails: async (productId) => {
+    const baseName = `product_${productId}`
+    endpoints.deleteFile(baseName)
+    const res = await endpoints.get(`/v2.0/catalog/product/${productId}/`, {}, baseName)
+    endpoints.save(res, baseName)
+    return res
   },
   exportProducts: async () => {
     // delete previous data
@@ -763,36 +805,6 @@ const endpoints = {
     const res = await endpoints.updateOrderStatus(94140, 2) // order 94140, status 2
     console.log('Response for test order update:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
-  generateOrderAWB: async (orderId) => {
-    const orderDetails = await endpoints.getOrderDetails(orderId)
-    const awbData = {
-      courier_id: config.courier_id,
-      location_id: config.shipping_location_id,
-      destination_city: orderDetails.shipping_city,
-      sender_name: config.sender_name,
-      sender_contact_person: config.sender_contact_person,
-      sender_phone: config.sender_phone,
-      sender_address: config.sender_address,
-      sender_county: config.sender_county,
-      sender_city: config.sender_city,
-      sender_postalcode: config.sender_postalcode,
-      destination_contact_person: orderDetails.shipping_customer_name,
-      destination_phone: orderDetails.shipping_phone_number,
-      destination_address: orderDetails.shipping_address,
-      destination_county: orderDetails.shipping_region,
-      destination_postalcode: '',
-      order_packages: 1, // default to 1 package
-      order_weight: 20, // default to 2 kg
-      order_height: 20, // default to 20 cm
-      order_length: 20, // default to 20 cm
-      order_size: 20, // default to 20 cm
-      declared_value: orderDetails.total_price, // default to total price
-      order_awb_format: '0'
-    }
-
-    const res = await endpoints.post(`/v2.0/sales/order/${orderId}/awb/generate`, awbData, 'awb')
-    console.log('Response for generateOrderAWB:', JSON.stringify(res.message), JSON.stringify(res.data))
-  },
   testGenerateAWB: async () => {
     await endpoints.generateOrderAWB(94140)
   },
@@ -890,7 +902,7 @@ async function main() {
       return
     }
     // await endpoints.testUpdateOrder()
-    // await endpoints.exportOrders() // do not filter by status
+    await endpoints.exportOrders() // do not filter by status
     // await endpoints.exportRMAs() // do not filter by status
     // await endpoints.exportCouriers()
     // await endpoints.exportLocations()

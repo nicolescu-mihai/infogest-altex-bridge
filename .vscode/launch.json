@@ -8,13 +8,39 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch Program",
+      "name": "Staging",
       "skipFiles": [
         "<node_internals>/**"
       ],
       "program": "${workspaceFolder}\\index.js",
       "args": [
+        "--cmd=exportOrders"
+
+        // "--cmd=getProductDetails",
+        // "--params=\"684731d0930be772537e950e\"",
+        
+        // "--cmd=deleteOrderInvoice",
+        // "--params=94140",
+        
+        // "--cmd=addOrderInvoice",
+        // "--params=[94140, \"MERT107659\", \"./data/test-invoice.pdf\"]",
+      ],
+    },{
+      "type": "node",
+      "request": "launch",
+      "name": "PROD",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "program": "${workspaceFolder}\\index.js",
+      "args": [
+        "--apiroot=https://marketplace.altex.ro",
+        "--pubkey=3d32d6920bf4ac948025551e8d07ecf6",
+        "--privkey=56a83ac84476f0f475bcf072e11f6c2a",
         // "--cmd=exportOrders"
+
+        // "--cmd=getProductDetails",
+        // "--params=\"684731d0930be772537e950e\"",
         
         // "--cmd=deleteOrderInvoice",
         // "--params=94140",
