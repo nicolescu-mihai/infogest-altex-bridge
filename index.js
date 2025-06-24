@@ -211,6 +211,7 @@ const endpoints = {
 
       const response = await axios.get(`${fullUrl}`, options)
       data = response.data.data || {}
+      if (data.items) data =  data.items
 
     } catch (error) {
       console.log('Error in GET request:', error.message)
@@ -575,10 +576,11 @@ const endpoints = {
     return res
   },
   generateOrderAWB: async (orderId) => {
+    const shippingLocations = await endpoints.get('/v2.0/sales/location/', {}, 'shipping_locations')
     const orderDetails = await endpoints.getOrderDetails(orderId)
     const awbData = {
       courier_id: config.courier_id,
-      location_id: config.shipping_location_id,
+      location_id: (shippingLocations.length > 0 ? shippingLocations[0].courier_location_id : config.shipping_location_id),
       destination_city: orderDetails.shipping_city,
       sender_name: config.sender_name,
       sender_contact_person: config.sender_contact_person,
@@ -593,10 +595,10 @@ const endpoints = {
       destination_county: orderDetails.shipping_region,
       destination_postalcode: '',
       order_packages: 1, // default to 1 package
-      order_weight: 20, // default to 2 kg
-      order_height: 20, // default to 20 cm
-      order_length: 20, // default to 20 cm
-      order_size: 1, // one package
+      order_weight: [2], // default to 2 kg
+      order_height: [20], // default to 20 cm
+      order_length: [20], // default to 20 cm
+      order_size: [1], // one package
       declared_value: orderDetails.total_price, // default to total price
       order_awb_format: '0'
     }
