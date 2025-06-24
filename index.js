@@ -291,12 +291,21 @@ const endpoints = {
       timeout: config.timeout
     }
     const fullUrl = `${config.root}${url}`
-    let response = null
+
+    if (bodyMode === 'formdata') options.headers['Content-Type'] = `multipart/form-data`
+
+    if (config.save_curl) {
+      // save curl command
+      let curlString = `curl -X POST "${fullUrl}"` // params are in the path
+      for (const key in options.headers) {
+        curlString += ` -H "${key}: ${options.headers[key]}"`
+      }
+      const name = customName + '.cmd'
+      fs.writeFileSync(name, curlString)
+    }
+
     try {
-      if (bodyMode === 'formdata') options.headers['Content-Type'] = `multipart/form-data`
-
-      response = await axios.post(fullUrl, data, options)
-
+      const response = await axios.post(fullUrl, data, options)
       return response
     } catch (error) {
       if (error.response) {
@@ -319,12 +328,23 @@ const endpoints = {
       },
       timeout: config.timeout
     }
+
     const fullUrl = `${config.root}${url}`
+
+    if (bodyMode === 'formdata') options.headers['Content-Type'] = `multipart/form-data`
+
+    if (config.save_curl) {
+      // save curl command
+      let curlString = `curl -X PUT "${fullUrl}"` // params are in the path
+      for (const key in options.headers) {
+        curlString += ` -H "${key}: ${options.headers[key]}"`
+      }
+      const name = customName + '.cmd'
+      fs.writeFileSync(name, curlString)
+    }
+
     try {
-      if (bodyMode === 'formdata') options.headers['Content-Type'] = `multipart/form-data`
-
       const response = await axios.put(fullUrl, data, options)
-
       return response
     } catch (error) {
       if (error.response) {
@@ -479,6 +499,14 @@ const endpoints = {
       aInvoiceRows.push(...invoices)
       // remove invoices from orderDetail
       delete orderDetail.invoices
+
+      // cleanup strings
+      orderDetail.billing_customer_name = strCleanup(orderDetail.billing_customer_name)
+      orderDetail.shipping_customer_name = strCleanup(orderDetail.shipping_customer_name)
+      orderDetail.billing_address = strCleanup(orderDetail.billing_address)
+      orderDetail.shipping_address = strCleanup(orderDetail.shipping_address)
+      orderDetail.billing_city = strCleanup(orderDetail.billing_city)
+      orderDetail.shipping_city = strCleanup(orderDetail.shipping_city)
 
       // add order to sint rows
       aSintRows.push(orderDetail)
