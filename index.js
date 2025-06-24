@@ -16,8 +16,6 @@ const { Parser } = require('json2csv')
 const CryptoJS = require('crypto-js')
 
 const today = new Date().toISOString().split('T')[0];
-const oneWeekAgo = new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0];
-
 
 const config = {
 
@@ -36,9 +34,10 @@ const config = {
   save_xml: false,
   save_csv: true,
   save_curl: true,
-  start_date: argv.startdate || oneWeekAgo,
+  start_date: argv.startdate || dateSub(today, 30), // default start date is 30 days ago
   end_date: argv.enddate || today,
   shipping_location_id: 1, // default shipping location id
+  courier_id: 7, // Cargus
   sender_name: 'MERT SA', // default sender name for AWB generation
   sender_contact_person: 'Test Contact Person', // default sender contact person for AWB generation
   sender_phone: '0770123456', // default sender phone for AWB generation
@@ -167,6 +166,12 @@ const strCleanup = str => str
   .replace(/`/g, '')
   .replace(/,,/g, ',')
   .replace(/ ,/g, ',');
+
+function dateSub(date, days) {
+  const newDate = new Date(date);
+  newDate.setDate(newDate.getDate() - days);
+  return newDate.toISOString().split('T')[0];
+}
 
 const endpoints = {
   get: async (url, params, customName) => {
@@ -445,7 +450,7 @@ const endpoints = {
     endpoints.save(orderDetail, baseName)
     return orderDetail
   },
-  exportOrders: async (startDate, endDate, status) => {
+  exportOrders: async (status) => {
     const baseNameSint = 'orders_sint'
     const baseNameDet = 'orders_det'
     const baseNameAwb = 'orders_awb'
@@ -456,8 +461,8 @@ const endpoints = {
     endpoints.deleteFile(baseNameInvoice)
 
     const ordersFilter = {}
-    if (startDate) ordersFilter.start_date = startDate
-    if (endDate) ordersFilter.end_date = endDate
+    ordersFilter.start_date = config.start_date
+    ordersFilter.end_date = config.end_date
     if (status) ordersFilter.status = status
     // Id	Status
     // 1	Registered
@@ -471,7 +476,7 @@ const endpoints = {
     // 9	Completed
     // 10	Technical cancelling
 
-    const aOrders = await endpoints.getAll('/v2.0/sales/order/', {}, baseNameSint)
+    const aOrders = await endpoints.getAll('/v2.0/sales/order/', ordersFilter, baseNameSint)
 
     let aSintRows = []
     let aDetRows = []
@@ -524,14 +529,14 @@ const endpoints = {
     endpoints.save(res, baseName)
     return res
   },
-  exportRMAs: async (startDate, status) => {
+  exportRMAs: async (status) => {
     const baseNameSint = 'rmas_sint'
     const baseNameDet = 'rmas_det'
     endpoints.deleteFile(baseNameSint)
     endpoints.deleteFile(baseNameDet)
 
     const rmasFilter = {}
-    if (startDate) rmasFilter.created_at = startDate
+    rmasFilter.created_at = config.start_date
     if (status) rmasFilter.status = status
     // Id	Status
     // 1	Registered
@@ -541,7 +546,7 @@ const endpoints = {
     // 5	Cancelled
     // 6	Visualized
 
-    const aRMAs = await endpoints.getAll('/v2.0/sales/rma/', {}, baseNameSint)
+    const aRMAs = await endpoints.getAll('/v2.0/sales/rma/', rmasFilter, baseNameSint)
 
     let aSintRows = []
     let aDetRows = []
@@ -714,14 +719,10 @@ const endpoints = {
     const res = await endpoints.put(`/v2.0/sales/order/${orderId}/`, { status: status }, 'status')
     console.log('Response for test order update:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
-  testGenerateAWB: async () => {
-    const orderId = 94140
-    const courierId = 7 // Cargus
-
+  generateOrderAWB: async (orderId) => {
     const orderDetails = await endpoints.getOrderDetails(orderId)
-
     const awbData = {
-      courier_id: courierId,
+      courier_id: config.courier_id,
       location_id: config.shipping_location_id,
       destination_city: orderDetails.shipping_city,
       sender_name: config.sender_name,
@@ -746,7 +747,10 @@ const endpoints = {
     }
 
     const res = await endpoints.post(`/v2.0/sales/order/${orderId}/awb/generate`, awbData, 'awb')
-    console.log('Response for test AWB generate:', JSON.stringify(res.message), JSON.stringify(res.data))
+    console.log('Response for generateOrderAWB:', JSON.stringify(res.message), JSON.stringify(res.data))
+  },
+  testGenerateAWB: async () => {
+    await endpoints.generateOrderAWB(94140)
   },
   testAddInvoice: async () => {
     const orderId = 94140
@@ -844,15 +848,15 @@ async function main() {
       return
     }
     // await endpoints.testUpdateOrder()
-    // await endpoints.exportOrders(config.start_date, config.end_date, null) // do not filter by status
-    // await endpoints.exportRMAs(config.start_date, null) // do not filter by status
+    await endpoints.exportOrders() // do not filter by status
+    await endpoints.exportRMAs() // do not filter by status
     // await endpoints.exportCouriers()
     // await endpoints.exportLocations()
     // await endpoints.exportCategories()
     // await endpoints.exportAttributes()
     // await endpoints.testAddProduct()
     // await endpoints.testUpdateProduct()
-    // await endpoints.exportProducts()
+    await endpoints.exportProducts()
     // await endpoints.testAddOffer()
     // await endpoints.testUpdateOffer()
     // await endpoints.exportOffers()
