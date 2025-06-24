@@ -14,8 +14,13 @@
       ],
       "program": "${workspaceFolder}\\index.js",
       "args": [
-        "--cmd=INVALIDexportOrders",
-        "--params=1",
+        // "--cmd=exportOrders"
+        
+        // "--cmd=deleteOrderInvoice",
+        // "--params=94140",
+        
+        // "--cmd=addOrderInvoice",
+        // "--params=[94140, \"MERT107659\", \"./data/test-invoice.pdf\"]",
       ],
     }
   ]

@@ -12,6 +12,7 @@ const argv = require('minimist')(process.argv.slice(2))
 const axios = require('axios')
 const xml2js = require('xml2js')
 const fs = require('fs')
+const path = require('path')
 const { Parser } = require('json2csv')
 const CryptoJS = require('crypto-js')
 
@@ -522,6 +523,52 @@ const endpoints = {
     endpoints.save(aInvoiceRows, baseNameInvoice)
 
   },
+  updateOrderStatus: async (orderId, status) => {
+    // update order status
+    // Id	Status
+    // 1	Registered
+    // 2	In Progress
+    // 3	Partial Shipped
+    // 4	Shipped
+    // 5	Partial Returned
+    // 6	Returned
+    // 7	Cancelled
+    // 8	Ready to be shipped
+    // 9	Completed
+    // 10	Technical cancelling
+
+    const res = await endpoints.put(`/v2.0/sales/order/${orderId}/`, {status: status})
+    if (res.data && res.data.message) {
+      console.log(`Message: ${res.data.message}`)
+    }
+    return res
+  },
+  addOrderInvoice: async (orderId, invoiceNumber, invoicePath) => {
+    // get order details
+    const orderDetail = await endpoints.getOrderDetails(orderId)
+    const products = (orderDetail.products || []).map(product => product.id)
+    // add invoice to order
+    const invoiceData = {
+      'media': fs.createReadStream(invoicePath), // invoice PDF file
+      'name': path.basename(invoicePath), // name of the invoice file
+      'products': products,
+      'invoice_number': invoiceNumber,
+    }
+
+    const res = await endpoints.post(`/v2.0/sales/order/${orderId}/invoice/`, invoiceData, 'invoice')
+    if (res.data && res.data.message) {
+      console.log(`Message: ${res.data.message}`)
+    }
+    return res
+  },
+  deleteOrderInvoice: async (orderId) => {
+    // delete order invoice
+    const res = await endpoints.delete(`/v2.0/sales/order/${orderId}/invoice/`, {}, 'invoice')
+    if (res.data && res.data.message) {
+      console.log(`Message: ${res.data.message}`)
+    }
+    return res
+  },
   getRMADetails: async (rmaId) => {
     const baseName = `rma_${rmaId}`
     endpoints.deleteFile(baseName)
@@ -713,10 +760,7 @@ const endpoints = {
     console.log('Response for test stock update:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testUpdateOrder: async () => {
-    const status = 2 // In Progress
-    const orderId = 94140
-
-    const res = await endpoints.put(`/v2.0/sales/order/${orderId}/`, { status: status }, 'status')
+    const res = await endpoints.updateOrderStatus(94140, 2) // order 94140, status 2
     console.log('Response for test order update:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   generateOrderAWB: async (orderId) => {
@@ -753,21 +797,11 @@ const endpoints = {
     await endpoints.generateOrderAWB(94140)
   },
   testAddInvoice: async () => {
-    const orderId = 94140
-    const invoiceData = {
-      'media': fs.createReadStream('./data/test-invoice.pdf'), // invoice PDF file
-      'name': 'test-invoice.pdf', // name of the invoice file
-      'products': ['105004'],
-      'invoice_number': 'MERT107659',
-    }
-
-    const res = await endpoints.post(`/v2.0/sales/order/${orderId}/invoice/`, invoiceData, 'invoice')
+    const res = await endpoints.addOrderInvoice(94140, 'MERT107659', './data/test-invoice.pdf')
     console.log('Response for test invoice add:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testDeleteInvoice: async () => {
-    const orderId = 94140
-
-    const res = await endpoints.delete(`/v2.0/sales/order/${orderId}/invoice/`, {}, 'invoice')
+    const res = await endpoints.deleteOrderInvoice(94140)
     console.log('Response for test invoice delete:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testAddRMAInvoice: async () => {
@@ -839,24 +873,32 @@ async function main() {
       console.log(`Running command: ${argv.cmd}`)
       
       if (argv.params) {
+        // parse params from JSON string
         const params = JSON.parse(argv.params)
-        await endpoints[argv.cmd](params)
+        if (Array.isArray(params)) {
+          // if params is an array, spread it
+          await endpoints[argv.cmd](...params)
+        } else {
+          // pass params
+          await endpoints[argv.cmd](params)
+        }
       } else {
+        // run command without params
         await endpoints[argv.cmd]()
       }
       
       return
     }
     // await endpoints.testUpdateOrder()
-    await endpoints.exportOrders() // do not filter by status
-    await endpoints.exportRMAs() // do not filter by status
+    // await endpoints.exportOrders() // do not filter by status
+    // await endpoints.exportRMAs() // do not filter by status
     // await endpoints.exportCouriers()
     // await endpoints.exportLocations()
     // await endpoints.exportCategories()
     // await endpoints.exportAttributes()
     // await endpoints.testAddProduct()
     // await endpoints.testUpdateProduct()
-    await endpoints.exportProducts()
+    // await endpoints.exportProducts()
     // await endpoints.testAddOffer()
     // await endpoints.testUpdateOffer()
     // await endpoints.exportOffers()
