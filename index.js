@@ -725,7 +725,15 @@ const endpoints = {
     const baseName = 'products'
     endpoints.deleteFile(baseName)
 
-    const aRows = await endpoints.getAll('/v2.0/catalog/product/', {}, baseName)
+    let aRows = await endpoints.getAll('/v2.0/catalog/product/', {}, baseName)
+    aRows = aRows.map(product => {
+      // cleanup strings
+      product.name = strCleanup(product.name)
+      product.description = strCleanup(product.description)
+      product.brand = strCleanup(product.brand)
+      product.ean = (Array.isArray(product.ean) ? product.ean.join(', ') : product.ean)
+      return product
+    })
 
     endpoints.save(aRows, baseName)
   },
@@ -914,8 +922,11 @@ async function main() {
       
       return
     }
-    // await endpoints.testUpdateOrder()
+    // default actions
     await endpoints.exportOrders() // do not filter by status
+    await endpoints.exportProducts()
+
+    // await endpoints.testUpdateOrder()
     // await endpoints.exportRMAs() // do not filter by status
     // await endpoints.exportCouriers()
     // await endpoints.exportLocations()
@@ -923,7 +934,6 @@ async function main() {
     // await endpoints.exportAttributes()
     // await endpoints.testAddProduct()
     // await endpoints.testUpdateProduct()
-    // await endpoints.exportProducts()
     // await endpoints.testAddOffer()
     // await endpoints.testUpdateOffer()
     // await endpoints.exportOffers()
