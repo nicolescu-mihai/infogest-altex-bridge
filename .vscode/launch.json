@@ -14,7 +14,7 @@
       ],
       "program": "${workspaceFolder}\\index.js",
       "args": [
-        // "--cmd=exportOrders"
+        "--cmd=exportOrders"
 
         // "--cmd=getProductDetails",
         // "--params=\"684731d0930be772537e950e\"",

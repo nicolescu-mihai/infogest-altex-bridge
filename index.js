@@ -36,10 +36,11 @@ const config = {
   itemsPerPage: 100,
   timeout: 3 * 60 * 1000, // 5 minutes
   sleep: 4, // seconds
-  save_json: true,
+  save_json: false,
   save_xml: false,
   save_csv: true,
-  save_curl: true,
+  save_curl: false,
+  log_file: 'altex-bridge.log',
   start_date: argv.startdate || dateSub(today, 30), // default start date is 30 days ago
   end_date: argv.enddate || today,
   shipping_location_id: 1, // default shipping location id
@@ -56,10 +57,20 @@ const config = {
   }
 }
 
-// console.log('argv', argv)
-if (!argv.key) {
+let logStream = null
+function log(...args) {
+  if (!logStream) logStream = fs.createWriteStream(config.log_file)
+  const tzOffset = new Date().getTimezoneOffset()
+  const timestamp = new Date(Date.now() - tzOffset * 60 * 1000).toISOString().replace('T', ' ').replace('Z', '')
+  const logMessage = `[${timestamp}] ${args.join(' ')}\n`
+  logStream.write(logMessage)
+  console.log(logMessage.trim())
+}
+
+// log('argv', argv)
+if (argv.length === 0 || argv.help || argv.h) {
   // eslint-disable-next-line max-len
-  console.log('Usage: altex-bridge.exe'
+  log('Usage: altex-bridge.exe'
     + ' --pubkey=[yuorPublicKey]'
     + ' --privkey=[yourAPIKey]'
     + ' --startdate=[' + config.start_date + ']'
@@ -140,7 +151,7 @@ function getSignature(requestMethod, params, bodyMode) {
 
   const signaturePrivateKey = CryptoJS.SHA512(privateKey).toString(CryptoJS.digest);
   const signature = dtString + '' + CryptoJS.SHA512(`${publicKey}||${signaturePrivateKey}||${paramsString}||${dtString}`).toString(CryptoJS.digest).toLowerCase();
-  // console.log({ publicKey, signaturePrivateKey, paramsString, dtString, signature, requestMethod });
+  // log({ publicKey, signaturePrivateKey, paramsString, dtString, signature, requestMethod });
   return signature;
 }
 
@@ -158,7 +169,7 @@ function getFullUrl(url, params) {
 
 async function sleep(seconds) {
   return new Promise(resolve => {
-    console.log(`Sleeping for ${seconds} seconds...`)
+    log(`Sleeping for ${seconds} seconds...`)
     setTimeout(() => resolve(), seconds * 1000)
   })
 }
@@ -214,7 +225,7 @@ const endpoints = {
       if (data.items) data =  data.items
 
     } catch (error) {
-      console.log('Error in GET request:', error.message)
+      log('Error in GET request:', error.message)
     }
     return data
   },
@@ -252,7 +263,7 @@ const endpoints = {
       let totalItems = null
       while (totalItems === null || totalItems > items.length) {
         // get the response
-        console.log(`GET ${fullUrl}`)
+        log(`GET ${fullUrl}`)
         let retries = 3
         let response = null
         while (retries > 0) {
@@ -260,10 +271,10 @@ const endpoints = {
             response = await axios.get(`${fullUrl}`, options)
             break; // exit the retry loop if successful
           } catch (error) {
-            console.log(`Error fetching ${fullUrl}: ${error.message}. Retrying... (${3 - retries + 1})`)
+            log(`Error fetching ${fullUrl}: ${error.message}. Retrying... (${3 - retries + 1})`)
             retries--;
             if (retries === 0) {
-              console.log('Max retries reached. Exiting...')
+              log('Max retries reached. Exiting...')
               throw error; // rethrow the error after max retries
             }
             // wait before retrying
@@ -272,7 +283,7 @@ const endpoints = {
         }
         // check if we have data
         if (!response.data || !response.data.data || !response.data.data.items) {
-          console.log(`No data found for ${fullUrl}`)
+          log(`No data found for ${fullUrl}`)
           break; // exit the loop if no data is found
         }
         // push data
@@ -284,16 +295,16 @@ const endpoints = {
         options.headers['X-Request-Signature'] = getSignature('GET', params, 'query')
       }
 
-      console.log(`totalItems: ${totalItems}`)
+      log(`totalItems: ${totalItems}`)
 
     } catch (error) {
-      console.log('Error in GET request:', error.message)
+      log('Error in GET request:', error.message)
     }
     return items
   },
   post: async (url, data, customName) => {
     // API post
-    // console.log(`POST ${url}`)
+    // log(`POST ${url}`)
     const bodyMode = (data.media ? 'formdata' : 'query')
     const options = {
       headers: {
@@ -321,18 +332,18 @@ const endpoints = {
       return response
     } catch (error) {
       if (error.response) {
-        console.log(`Error in POST request to ${fullUrl}`)
-        console.log(`Headers: ${JSON.stringify(options)}`)
-        console.log('Error data:', JSON.stringify(error.response.data))
+        log(`Error in POST request to ${fullUrl}`)
+        log(`Headers: ${JSON.stringify(options)}`)
+        log('Error data:', JSON.stringify(error.response.data))
       }
-      console.log(error)
+      log(error)
       return error.response.data
     }
   },
   put: async (url, data, customName) => {
     // API post
     const bodyMode = (data.media ? 'formdata' : 'query')
-    // console.log(`PUT ${url}`)
+    // log(`PUT ${url}`)
     const options = {
       headers: {
         ...config.headers,
@@ -360,11 +371,11 @@ const endpoints = {
       return response
     } catch (error) {
       if (error.response) {
-        console.log(`Error in PUT request to ${fullUrl}`)
-        console.log(`Headers: ${JSON.stringify(options)}`)
-        console.log('Error data:', JSON.stringify(error.response.data))
+        log(`Error in PUT request to ${fullUrl}`)
+        log(`Headers: ${JSON.stringify(options)}`)
+        log('Error data:', JSON.stringify(error.response.data))
       }
-      console.log(error)
+      log(error)
       return error.response.data
     }
   },
@@ -401,7 +412,7 @@ const endpoints = {
       data = response.data.data || {}
 
     } catch (error) {
-      console.log('Error in DELETE request:', error.message)
+      log('Error in DELETE request:', error.message)
     }
     return data
   },
@@ -409,9 +420,9 @@ const endpoints = {
     try {
       if (fs.existsSync(fname)) fs.unlinkSync(fname)
       fs.writeFileSync(fname, data)
-      console.log(`Saved: ${fname}`)
+      log(`Saved: ${fname}`)
     } catch (error) {
-      console.log(error)
+      log(error)
     }
   },
   save: (data, fname) => {
@@ -445,9 +456,9 @@ const endpoints = {
       const csvName = `${fname}.csv`
       if (fs.existsSync(csvName)) fs.unlinkSync(csvName)
 
-      console.log(`Deleted: ${fname}`)
+      log(`Deleted: ${fname}`)
     } catch (error) {
-      console.log(error)
+      log(error)
     }
   },
   getOrderDetails: async (orderId) => {
@@ -492,7 +503,7 @@ const endpoints = {
     for (const order of aOrders) {
       const orderId = order.order_id
       const orderDetail = await endpoints.get(`/v2.0/sales/order/${orderId}/`, {}, baseNameDet)
-      // console.log(orderDetail)
+      // log(orderDetail)
 
       // extract products
       const products = (orderDetail.products || []).map(product => { return { ...product, order_id: orderId } })
@@ -545,7 +556,7 @@ const endpoints = {
 
     const res = await endpoints.put(`/v2.0/sales/order/${orderId}/`, {status: status})
     if (res.data && res.data.message) {
-      console.log(`Message: ${res.data.message}`)
+      log(`Message: ${res.data.message}`)
     }
     return res
   },
@@ -563,7 +574,7 @@ const endpoints = {
 
     const res = await endpoints.post(`/v2.0/sales/order/${orderId}/invoice/`, invoiceData, 'invoice')
     if (res.data && res.data.message) {
-      console.log(`Message: ${res.data.message}`)
+      log(`Message: ${res.data.message}`)
     }
     return res
   },
@@ -571,7 +582,7 @@ const endpoints = {
     // delete order invoice
     const res = await endpoints.delete(`/v2.0/sales/order/${orderId}/invoice/`, {}, 'invoice')
     if (res.data && res.data.message) {
-      console.log(`Message: ${res.data.message}`)
+      log(`Message: ${res.data.message}`)
     }
     return res
   },
@@ -604,7 +615,7 @@ const endpoints = {
     }
 
     const res = await endpoints.post(`/v2.0/sales/order/${orderId}/awb/generate`, awbData, 'awb')
-    console.log('Response for generateOrderAWB:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for generateOrderAWB:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   getRMADetails: async (rmaId) => {
     const baseName = `rma_${rmaId}`
@@ -637,7 +648,7 @@ const endpoints = {
     for (const rma of aRMAs) {
       const rmaId = rma.rma_id
       const rmaDetail = await endpoints.get(`/v2.0/sales/rma/${rmaId}/`, {}, baseNameDet)
-      // console.log(rmaDetail)
+      // log(rmaDetail)
 
       // extract products
       const products = (rmaDetail.products || []).map(product => { return { ...product, rma_id: rmaId } })
@@ -740,7 +751,7 @@ const endpoints = {
     product['0'].ean = barcode
     product['0'].offer.seller_product_code = barcode
     res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
-    console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
 
     product = JSON.parse(fs.readFileSync('./data/test-product2.json', 'utf8'))
     // generate a new barcode
@@ -750,7 +761,7 @@ const endpoints = {
     product['0'].ean = barcode
     product['0'].offer.seller_product_code = barcode
     res = await endpoints.post('/v2.0/catalog/product/', product, 'product')
-    console.log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test product 1:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testUpdateProduct: async () => {
     let res = null;
@@ -764,7 +775,7 @@ const endpoints = {
     product.attributes.price_unit = 'Pret/Bucata' // don't know the correct value
 
     res = await endpoints.put(`/v2.0/catalog/product/${id}/`, { description: product.description, attributes: product.attributes }, 'product')
-    console.log('Response for test product 1 update:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test product 1 update:', JSON.stringify(res.message), JSON.stringify(res.data))
 
   },
   testAddOffer: async () => {
@@ -777,7 +788,7 @@ const endpoints = {
     }
 
     const res = await endpoints.post(`/v2.0/catalog/offer/`, offer, 'offer')
-    console.log('Response for test offer add:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test offer add:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testUpdateOffer: async () => {
 
@@ -789,7 +800,7 @@ const endpoints = {
     }
 
     const res = await endpoints.put(`/v2.0/catalog/offer/`, offer, 'offer')
-    console.log('Response for test offer add:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test offer add:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testUpdateStock: async () => {
 
@@ -801,22 +812,22 @@ const endpoints = {
     }
 
     const res = await endpoints.put(`/v2.0/catalog/stock/`, stock, 'stock')
-    console.log('Response for test stock update:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test stock update:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testUpdateOrder: async () => {
     const res = await endpoints.updateOrderStatus(94140, 2) // order 94140, status 2
-    console.log('Response for test order update:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test order update:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testGenerateAWB: async () => {
     await endpoints.generateOrderAWB(94140)
   },
   testAddInvoice: async () => {
     const res = await endpoints.addOrderInvoice(94140, 'MERT107659', './data/test-invoice.pdf')
-    console.log('Response for test invoice add:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test invoice add:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testDeleteInvoice: async () => {
     const res = await endpoints.deleteOrderInvoice(94140)
-    console.log('Response for test invoice delete:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test invoice delete:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testAddRMAInvoice: async () => {
     const rmaId = 2764
@@ -828,13 +839,13 @@ const endpoints = {
     }
 
     const res = await endpoints.post(`/v2.0/sales/rma/${rmaId}/invoice/`, rmaData, 'rma')
-    console.log('Response for test RMA invoice add:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test RMA invoice add:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testDeleteRMAInvoice: async () => {
     const rmaId = 2764
 
     const res = await endpoints.delete(`/v2.0/sales/rma/${rmaId}/invoice/`, {}, 'rma')
-    console.log('Response for test RMA invoice delete:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test RMA invoice delete:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
   testGenerateRMAawb: async () => {
     const rmaId = 2764
@@ -876,7 +887,7 @@ const endpoints = {
     }
 
     const res = await endpoints.post(`/v2.0/sales/rma/${rmaId}/awb/generate`, awbData, 'awb')
-    console.log('Response for test RMA AWB generate:', JSON.stringify(res.message), JSON.stringify(res.data))
+    log('Response for test RMA AWB generate:', JSON.stringify(res.message), JSON.stringify(res.data))
   },
 }
 
@@ -884,7 +895,7 @@ async function main() {
   try {
     if (argv.cmd && typeof endpoints[argv.cmd] === 'function') {
       // run a specific command
-      console.log(`Running command: ${argv.cmd}`)
+      log(`Running command: ${argv.cmd}`)
       
       if (argv.params) {
         // parse params from JSON string
@@ -928,4 +939,4 @@ async function main() {
   }
 }
 
-main().then(() => console.log('Import finished'))
+main().then(() => log('Import finished'))
