@@ -14,6 +14,10 @@
       ],
       "program": "${workspaceFolder}\\index.js",
       "args": [
+        "--apiroot=https://mkp-stage.altex.ro",
+        "--pubkey=cabdd74122382757e92466e746c4c8d5",
+        "--privkey=cd7d193768936e10a137e1e5d687c761",
+
         // "--cmd=exportOrders"
 
         // "--cmd=getProductDetails",
@@ -34,9 +38,9 @@
       ],
       "program": "${workspaceFolder}\\index.js",
       "args": [
-        //"--apiroot=https://marketplace.altex.ro",
-        //"--pubkey=3d32d6920bf4ac948025551e8d07ecf6",
-        //"--privkey=56a83ac84476f0f475bcf072e11f6c2a",
+        "--apiroot=https://marketplace.altex.ro",
+        "--pubkey=3d32d6920bf4ac948025551e8d07ecf6",
+        "--privkey=56a83ac84476f0f475bcf072e11f6c2a",
         
         // "--cmd=exportOrders"
 

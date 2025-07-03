@@ -52,7 +52,14 @@ const config = {
   sender_city: 'Afumati', // default sender city for AWB generation
   sender_postalcode: '077020', // default sender postal code for AWB generation
   model_fields: {
-    // 'base-products': ["id", "name", "measureunit_code", "taxgroup_vat_rate", "label", "stock_alerts"],
+    // staging
+    'orders_sint': ["order_id","suborder_id","order_code","status","delivery_mode","payment_mode","total_price","products_price","shipping_tax","payment_tax","customer_id","billing_customer_name","billing_phone_number","billing_country","billing_address","billing_city","billing_company_name","billing_region","shipping_customer_name","shipping_phone_number","shipping_country","shipping_address","shipping_city","shipping_company_name","shipping_company_code","shipping_company_registration_number","shipping_company_bank","shipping_company_iban","shipping_region","order_date","admin_comments","billing_company_code","billing_company_registration_number","billing_company_bank","billing_company_iban"],
+    'orders_det': ["id","seller_product_code","external_id","product_id","product","name","catalog_price","selling_price","row_total","voucher","quantity","status","commission","commission_percent","vat","aditional_data","created_at","updated_at","order_id"],
+    'products': ["id","sku","ean","name","description","brand","approval_status","rejection_reasons","sending_blocked_by_reasons","published_by_altex"],
+    // prod
+    // 'orders_sint': ["order_id","suborder_id","order_code","status","delivery_mode","payment_mode","total_price","products_price","shipping_tax","payment_tax","customer_id","billing_customer_name","billing_phone_number","billing_country","billing_address","billing_city","billing_company_name","billing_company_code","billing_company_registration_number","billing_company_bank","billing_company_iban","billing_region","shipping_customer_name","shipping_phone_number","shipping_country","shipping_address","shipping_city","shipping_company_name","shipping_company_code","shipping_company_registration_number","shipping_company_bank","shipping_company_iban","shipping_region","order_date","admin_comments"],
+    // 'orders_det': ["id","seller_product_code","external_id","product_id","product","name","catalog_price","selling_price","row_total","voucher","quantity","status","commission","commission_percent","vat","aditional_data","created_at","order_id","updated_at"],
+    // 'products': ["id","sku","ean","name","description","brand","approval_status","rejection_reasons","sending_blocked_by_reasons","published_by_altex"],
   }
 }
 // add publicKey to headers
