@@ -21,17 +21,16 @@ const today = new Date().toISOString().split('T')[0];
 const config = {
 
   // stage
-  root: argv.apiroot || 'https://mkp-stage.altex.ro',
-  publicKey: argv.pubkey || 'cabdd74122382757e92466e746c4c8d5',
-  privateKey: argv.privkey || 'cd7d193768936e10a137e1e5d687c761',
+  // root: argv.apiroot || 'https://mkp-stage.altex.ro',
+  // publicKey: argv.pubkey || 'cabdd74122382757e92466e746c4c8d5',
+  // privateKey: argv.privkey || 'cd7d193768936e10a137e1e5d687c761',
   // prod
-  // root: argv.apiroot || 'https://marketplace.altex.ro',
-  // publicKey: argv.pubkey || '3d32d6920bf4ac948025551e8d07ecf6',
-  // privateKey: argv.privkey || '56a83ac84476f0f475bcf072e11f6c2a',
+  root: argv.apiroot || 'https://marketplace.altex.ro',
+  publicKey: argv.pubkey || '3d32d6920bf4ac948025551e8d07ecf6',
+  privateKey: argv.privkey || '56a83ac84476f0f475bcf072e11f6c2a',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'X-Request-Public-Key': argv.pubkey || 'cabdd74122382757e92466e746c4c8d5',
   },
   itemsPerPage: 100,
   timeout: 3 * 60 * 1000, // 5 minutes
@@ -56,10 +55,12 @@ const config = {
     // 'base-products': ["id", "name", "measureunit_code", "taxgroup_vat_rate", "label", "stock_alerts"],
   }
 }
+// add publicKey to headers
+config.headers['X-Request-Public-Key'] = config.publicKey
 
 let logStream = null
 function log(...args) {
-  if (!logStream) logStream = fs.createWriteStream(config.log_file)
+  if (!logStream) logStream = fs.createWriteStream(config.log_file, { flags: 'a' }) // append mode
   const tzOffset = new Date().getTimezoneOffset()
   const timestamp = new Date(Date.now() - tzOffset * 60 * 1000).toISOString().replace('T', ' ').replace('Z', '')
   const logMessage = `[${timestamp}] ${args.join(' ')}\n`
@@ -68,10 +69,11 @@ function log(...args) {
 }
 
 // log('argv', argv)
-if (argv.length === 0 || argv.help || argv.h) {
+if ((argv['_'] || []).length === 0 || argv.help || argv.h) {
   // eslint-disable-next-line max-len
   log('Usage: altex-bridge.exe'
-    + ' --pubkey=[yuorPublicKey]'
+    + ' --apiroot=[yourAPIroot]'
+    + ' --pubkey=[yourPublicKey]'
     + ' --privkey=[yourAPIKey]'
     + ' --startdate=[' + config.start_date + ']'
     + ' --enddate=[' + config.end_date + ']'
@@ -151,7 +153,7 @@ function getSignature(requestMethod, params, bodyMode) {
 
   const signaturePrivateKey = CryptoJS.SHA512(privateKey).toString(CryptoJS.digest);
   const signature = dtString + '' + CryptoJS.SHA512(`${publicKey}||${signaturePrivateKey}||${paramsString}||${dtString}`).toString(CryptoJS.digest).toLowerCase();
-  // log({ publicKey, signaturePrivateKey, paramsString, dtString, signature, requestMethod });
+  // log(JSON.stringify({ publicKey, signaturePrivateKey, paramsString, dtString, signature, requestMethod }));
   return signature;
 }
 
@@ -220,6 +222,7 @@ const endpoints = {
         fs.writeFileSync(name, curlString)
       }
 
+      log(`GET ${fullUrl}`)
       const response = await axios.get(`${fullUrl}`, options)
       data = response.data.data || {}
       if (data.items) data =  data.items
@@ -900,6 +903,7 @@ const endpoints = {
 }
 
 async function main() {
+  // log(JSON.stringify(argv, null, 2))
   try {
     if (argv.cmd && typeof endpoints[argv.cmd] === 'function') {
       // run a specific command
