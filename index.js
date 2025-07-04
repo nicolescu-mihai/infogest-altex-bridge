@@ -21,13 +21,17 @@ const today = new Date().toISOString().split('T')[0];
 const config = {
 
   // stage
-  // root: argv.apiroot || 'https://mkp-stage.altex.ro',
-  // publicKey: argv.pubkey || 'cabdd74122382757e92466e746c4c8d5',
-  // privateKey: argv.privkey || 'cd7d193768936e10a137e1e5d687c761',
+  // root: 'https://mkp-stage.altex.ro',
+  // publicKey: 'cabdd74122382757e92466e746c4c8d5',
+  // privateKey: 'cd7d193768936e10a137e1e5d687c761',
   // prod
-  root: argv.apiroot || 'https://marketplace.altex.ro',
-  publicKey: argv.pubkey || '3d32d6920bf4ac948025551e8d07ecf6',
-  privateKey: argv.privkey || '56a83ac84476f0f475bcf072e11f6c2a',
+  // root: 'https://marketplace.altex.ro',
+  // publicKey: '3d32d6920bf4ac948025551e8d07ecf6',
+  // privateKey: '56a83ac84476f0f475bcf072e11f6c2a',
+  root: (argv.pubkey === '3d32d6920bf4ac948025551e8d07ecf6' ? 'https://marketplace.altex.ro' : 'https://mkp-stage.altex.ro'),
+  // no defaults
+  publicKey: argv.pubkey,
+  privateKey: argv.privkey,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -76,10 +80,9 @@ function log(...args) {
 }
 
 // log('argv', argv)
-if ((argv['_'] || []).length === 0 || argv.help || argv.h) {
+if (argv.help || argv.h || !config.publicKey || !config.privateKey) {
   // eslint-disable-next-line max-len
   log('Usage: altex-bridge.exe'
-    + ' --apiroot=[yourAPIroot]'
     + ' --pubkey=[yourPublicKey]'
     + ' --privkey=[yourAPIKey]'
     + ' --startdate=[' + config.start_date + ']'
@@ -87,6 +90,9 @@ if ((argv['_'] || []).length === 0 || argv.help || argv.h) {
     + ' --cmd=[command]'
     + ' --params=[params]'
   )
+  log('Missing required parameters: --pubkey and --privkey')
+  // exit with code 1
+  process.exit(1)
 }
 
 /**
