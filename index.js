@@ -71,7 +71,17 @@ config.headers['X-Request-Public-Key'] = config.publicKey
 
 let logStream = null
 function log(...args) {
-  if (!logStream) logStream = fs.createWriteStream(config.log_file, { flags: 'a' }) // append mode
+  if (!logStream) {
+    // if the log file exceeds 10MB, rename the old one with .old extension and create a new one
+    if (fs.existsSync(config.log_file) && fs.statSync(config.log_file).size > 10 * 1024 * 1024) {
+      // if the old log file exists, delete it
+      if (fs.existsSync(config.log_file + '.old')) fs.unlinkSync(config.log_file + '.old')
+      // rename the current log file
+      fs.renameSync(config.log_file, config.log_file + '.old')
+    }
+    // create a new log stream in append mode
+    logStream = fs.createWriteStream(config.log_file, { flags: 'a' }) // append mode
+  }
   const tzOffset = new Date().getTimezoneOffset()
   const timestamp = new Date(Date.now() - tzOffset * 60 * 1000).toISOString().replace('T', ' ').replace('Z', '')
   const logMessage = `[${timestamp}] ${args.join(' ')}\n`
