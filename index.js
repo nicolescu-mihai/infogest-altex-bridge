@@ -587,8 +587,18 @@ const endpoints = {
     return res
   },
   addOrderInvoice: async (orderId, invoiceNumber, invoicePath) => {
+    // if the invoicePath is like http:// or https://, download the file first
+    if (invoicePath.startsWith('http://') || invoicePath.startsWith('https://')) {
+      const response = await axios.get(invoicePath, { responseType: 'arraybuffer' })
+      invoicePath = `local_invoice_${orderId}.pdf`
+      fs.writeFileSync(invoicePath, response.data)
+    }
     // get order details
     const orderDetail = await endpoints.getOrderDetails(orderId)
+    // if we already have an invoice, delete it first
+    if (orderDetail.invoices && orderDetail.invoices.length > 0) {
+      await endpoints.deleteOrderInvoice(orderId)
+    }
     const products = (orderDetail.products || []).map(product => product.id)
     // add invoice to order
     const invoiceData = {
@@ -601,6 +611,13 @@ const endpoints = {
     const res = await endpoints.post(`/v2.0/sales/order/${orderId}/invoice/`, invoiceData, 'invoice')
     if (res.data && res.data.message) {
       log(`Message: ${res.data.message}`)
+    }
+    // delete the temporary invoice file if we downloaded it
+    if (invoicePath.startsWith(`local_invoice_${orderId}.pdf`)) {
+      // if the file exists, delete it
+      if (fs.existsSync(invoicePath)) {
+        fs.unlinkSync(invoicePath)
+      }
     }
     return res
   },

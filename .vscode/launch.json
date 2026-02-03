@@ -52,7 +52,7 @@
         // "--params=94140",
         
         // "--cmd=addOrderInvoice",
-        // "--params=[94140, \"MERT107659\", \"./data/test-invoice.pdf\"]",
+        // "--params=[305392, \"13\", \"https://storage.googleapis.com/mert-invoices/Moldovan_Renata_13_FAC1000253175-BCD49D35-BC47-4EBA-88F1-A15B04F1FB99.pdf\"]",
       ],
     }
   ]
