@@ -1,6 +1,6 @@
 /node_modules
 /*.xml
-#/*.csv
+/*.csv
 #/*.json
 /*.cmd
 /*.exe
